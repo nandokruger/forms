@@ -360,23 +360,58 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		);
 	}
 
+	const pageStyle: React.CSSProperties = {
+		fontFamily: form.design?.fontFamily || undefined,
+		backgroundColor: form.design?.backgroundColor || undefined,
+		backgroundImage: form.design?.backgroundImageUrl
+			? `url(${form.design.backgroundImageUrl})`
+			: undefined,
+		backgroundSize: form.design?.backgroundImageUrl ? 'cover' : undefined,
+		backgroundPosition: form.design?.backgroundImageUrl ? 'center' : undefined,
+	};
+
+	const titleStyle: React.CSSProperties = { color: form.design?.titleColor || undefined };
+	const questionTextStyle: React.CSSProperties = { color: form.design?.questionColor || undefined };
+	const hasCustomButton = Boolean(
+		form.design?.buttonColor ||
+			form.design?.buttonTextColor ||
+			form.design?.cornerRadius !== undefined
+	);
+	const baseButtonClass = `inline-flex items-center px-8 py-3 text-base font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-lg`;
+	const defaultButtonClasses = `bg-blue-600 hover:bg-blue-700 focus:ring-blue-500`;
+	const buttonClass = `${baseButtonClass} ${hasCustomButton ? '' : defaultButtonClasses}`.trim();
+	const primaryButtonStyle: React.CSSProperties = {
+		backgroundColor: form.design?.buttonColor || undefined,
+		color: form.design?.buttonTextColor || undefined,
+		borderRadius:
+			form.design?.cornerRadius !== undefined ? `${form.design.cornerRadius}px` : undefined,
+	};
+
 	return (
-		<div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100'>
+		<div className='min-h-screen' style={pageStyle}>
 			{/* Progress Bar */}
-			<div className='fixed top-0 left-0 w-full h-1 bg-gray-200 z-50'>
-				<div
-					className='h-full bg-blue-500 transition-all duration-300 ease-out'
-					style={{ width: `${progress}%` }}
-				/>
-			</div>
+			{!form.hideProgressBar && (
+				<div className='fixed top-0 left-0 w-full h-1 bg-gray-200 z-50'>
+					<div
+						className='h-full bg-blue-500 transition-all duration-300 ease-out'
+						style={{ width: `${progress}%` }}
+					/>
+				</div>
+			)}
 
 			{/* Header */}
 			<div className='p-4'>
 				<div className='flex items-center justify-between max-w-4xl mx-auto'>
-					<h1 className='text-lg font-semibold text-gray-900'>{form.title}</h1>
-					<div className='text-sm text-gray-500'>
-						{currentQuestionIndex + 1} de {form.questions.length}
-					</div>
+					{!form.hideFormTitle && (
+						<h1 className='text-lg font-semibold' style={titleStyle}>
+							{form.title}
+						</h1>
+					)}
+					{!form.hideQuestionNumber && (
+						<div className='text-sm text-gray-500'>
+							{currentQuestionIndex + 1} de {form.questions.length}
+						</div>
+					)}
 				</div>
 			</div>
 
@@ -385,12 +420,14 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 				<div className='w-full max-w-2xl'>
 					{currentQuestion && (
 						<div className='text-center mb-8'>
-							<h2 className='text-3xl md:text-4xl font-bold text-gray-900 mb-4'>
+							<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
 								{currentQuestion.title}
 								{currentQuestion.required && <span className='text-red-500 ml-1'>*</span>}
 							</h2>
 							{currentQuestion.description && (
-								<p className='text-xl text-gray-600 mb-8'>{currentQuestion.description}</p>
+								<p className='text-xl mb-8' style={questionTextStyle}>
+									{currentQuestion.description}
+								</p>
 							)}
 						</div>
 					)}
@@ -418,10 +455,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							Anterior
 						</button>
 
-						<button
-							onClick={handleNext}
-							className='inline-flex items-center px-8 py-3 text-base font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors shadow-lg'
-						>
+						<button onClick={handleNext} className={buttonClass} style={primaryButtonStyle}>
 							{isLastQuestion ? 'Enviar' : 'Próxima'}
 							{!isLastQuestion && <ChevronRight className='h-4 w-4 ml-2' />}
 						</button>

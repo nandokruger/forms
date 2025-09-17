@@ -151,9 +151,26 @@ function App() {
 			isPublished: false,
 			responseCount: 0,
 			questions: [],
+			// UI settings defaults
+			hideFormTitle: false,
+			hideQuestionNumber: false,
+			hideProgressBar: false,
+			design: {
+				fontFamily: 'Inter, system-ui, sans-serif',
+				titleColor: '#111827',
+				questionColor: '#111827',
+				buttonColor: '#2563eb',
+				buttonTextColor: '#ffffff',
+				welcomeSize: 'md',
+				welcomeAlign: 'center',
+				cornerRadius: 12,
+				backgroundColor: '#f8fafc',
+				backgroundImageUrl: '',
+			},
 		};
 
-		addForm(newForm);
+		// Do not add to the list yet; open editor as draft
+		setCurrentForm(newForm);
 		setView('form-editor');
 	};
 
@@ -285,6 +302,9 @@ function App() {
 								// reload forms list
 								const forms = await getAllForms();
 								setForms(forms);
+								// ensure currentForm points to saved copy
+								const saved = forms.find((f) => f.id === state.currentForm!.id);
+								if (saved) setCurrentForm(saved);
 							} catch (e) {
 								console.error('Erro ao salvar formulário:', e);
 								alert('Erro ao salvar formulário.');

@@ -21,6 +21,8 @@ import { Form, Question, QuestionType, FormWorkflow } from '../types';
 import { createEmptyQuestion, getQuestionTypeLabel } from '../utils/helpers';
 import { WorkflowBuilder } from './WorkflowBuilder';
 import { ShareEmbed } from './ShareEmbed';
+import { saveForm } from '../services/formService';
+import DesignModal from './DesignModal';
 
 interface FormEditorProps {
 	form: Form;
@@ -53,6 +55,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const [activeTab, setActiveTab] = useState<'content' | 'workflow' | 'settings' | 'share'>(
 		'content'
 	);
+	const [showDesign, setShowDesign] = useState(false);
 
 	const selectedQuestion = form.questions.find((q) => q.id === selectedQuestionId);
 
@@ -109,6 +112,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const updateFormDetails = (updates: Partial<Form>) => {
 		onUpdateForm({ ...form, ...updates });
 	};
+
+	//
 
 	return (
 		<div className='h-screen bg-gray-50 flex'>
@@ -471,24 +476,121 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 										/>
 									</div>
 
-									<div className='flex items-center'>
-										<input
-											type='checkbox'
-											id='published'
-											checked={form.isPublished}
-											onChange={(e) => updateFormDetails({ isPublished: e.target.checked })}
-											className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-										/>
-										<label htmlFor='published' className='ml-2 text-sm text-gray-700'>
-											Formulário publicado (visível para respostas)
+									{/* Switches */}
+									<div className='space-y-3'>
+										<label className='flex items-center justify-between'>
+											<span className='text-sm text-gray-700'>
+												Formulário publicado (visível para respostas)
+											</span>
+											<button
+												onClick={() => updateFormDetails({ isPublished: !form.isPublished })}
+												className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+													form.isPublished ? 'bg-blue-600' : 'bg-gray-200'
+												}`}
+												type='button'
+												aria-pressed={form.isPublished}
+											>
+												<span
+													className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+														form.isPublished ? 'translate-x-5' : 'translate-x-1'
+													}`}
+												/>
+											</button>
+										</label>
+
+										<label className='flex items-center justify-between'>
+											<span className='text-sm text-gray-700'>Ocultar nome do formulário</span>
+											<button
+												onClick={() => updateFormDetails({ hideFormTitle: !form.hideFormTitle })}
+												className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+													form.hideFormTitle ? 'bg-blue-600' : 'bg-gray-200'
+												}`}
+												type='button'
+												aria-pressed={!!form.hideFormTitle}
+											>
+												<span
+													className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+														form.hideFormTitle ? 'translate-x-5' : 'translate-x-1'
+													}`}
+												/>
+											</button>
+										</label>
+
+										<label className='flex items-center justify-between'>
+											<span className='text-sm text-gray-700'>Ocultar número da questão</span>
+											<button
+												onClick={() =>
+													updateFormDetails({ hideQuestionNumber: !form.hideQuestionNumber })
+												}
+												className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+													form.hideQuestionNumber ? 'bg-blue-600' : 'bg-gray-200'
+												}`}
+												type='button'
+												aria-pressed={!!form.hideQuestionNumber}
+											>
+												<span
+													className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+														form.hideQuestionNumber ? 'translate-x-5' : 'translate-x-1'
+													}`}
+												/>
+											</button>
+										</label>
+
+										<label className='flex items-center justify-between'>
+											<span className='text-sm text-gray-700'>Ocultar barra de progresso</span>
+											<button
+												onClick={() =>
+													updateFormDetails({ hideProgressBar: !form.hideProgressBar })
+												}
+												className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+													form.hideProgressBar ? 'bg-blue-600' : 'bg-gray-200'
+												}`}
+												type='button'
+												aria-pressed={!!form.hideProgressBar}
+											>
+												<span
+													className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+														form.hideProgressBar ? 'translate-x-5' : 'translate-x-1'
+													}`}
+												/>
+											</button>
 										</label>
 									</div>
 								</div>
+
+								{/* Design button */}
+								<div className='pt-4'>
+									<button
+										onClick={() => setShowDesign(true)}
+										className='inline-flex items-center px-3 py-2 text-sm font-medium text-white bg-gray-900 rounded-md hover:bg-gray-800'
+									>
+										<Settings className='h-4 w-4 mr-2' /> Design
+									</button>
+								</div>
+
+								{/* Modal */}
+								{showDesign && (
+									<DesignModal
+										form={form}
+										onClose={() => setShowDesign(false)}
+										onSave={async (design) => {
+											const updated = { ...form, design };
+											onUpdateForm(updated);
+											try {
+												await saveForm(updated);
+											} catch (e) {
+												console.error('Erro ao salvar design:', e);
+											}
+										}}
+									/>
+								)}
 							</div>
 						</div>
 					)}
 				</div>
 			</div>
+
+			{/* Design modal removido temporariamente para corrigir parse */}
 		</div>
 	);
 };

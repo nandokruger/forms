@@ -15,6 +15,7 @@ import { Form } from '../types';
 
 interface ShareEmbedProps {
 	form: Form;
+	onBack?: () => void;
 }
 
 type ShareTab = 'link' | 'embed' | 'targeted';

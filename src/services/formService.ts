@@ -68,6 +68,11 @@ const mapFormDocToForm = async (formId: string, formData: any): Promise<Form> =>
 		responseCount: typeof formData.responseCount === 'number' ? formData.responseCount : 0,
 		questions,
 		workflow: formData.workflow || { rules: [] },
+		// UI settings
+		hideFormTitle: Boolean(formData.hideFormTitle),
+		hideQuestionNumber: Boolean(formData.hideQuestionNumber),
+		hideProgressBar: Boolean(formData.hideProgressBar),
+		design: formData.design || undefined,
 	} as Form;
 };
 
@@ -122,6 +127,11 @@ export const saveForm = async (form: Form): Promise<string> => {
 			isPublished: !!form.isPublished,
 			userId: form.userId || '',
 			workflow: replaceUndefinedWithNull(form.workflow || { rules: [] }),
+			// UI settings
+			hideFormTitle: !!form.hideFormTitle,
+			hideQuestionNumber: !!form.hideQuestionNumber,
+			hideProgressBar: !!form.hideProgressBar,
+			design: replaceUndefinedWithNull(form.design || {}),
 			createdAt: new Date(),
 			updatedAt: new Date(),
 		});
@@ -134,6 +144,11 @@ export const saveForm = async (form: Form): Promise<string> => {
 				isPublished: !!form.isPublished,
 				userId: form.userId || '',
 				workflow: replaceUndefinedWithNull(form.workflow || { rules: [] }),
+				// UI settings
+				hideFormTitle: !!form.hideFormTitle,
+				hideQuestionNumber: !!form.hideQuestionNumber,
+				hideProgressBar: !!form.hideProgressBar,
+				design: replaceUndefinedWithNull(form.design || {}),
 				updatedAt: new Date(),
 			},
 			{ merge: true }

@@ -15,6 +15,29 @@ export interface Form {
 	responseCount: number;
 	questions: Question[];
 	workflow?: FormWorkflow;
+	// UI settings
+	hideFormTitle?: boolean;
+	hideQuestionNumber?: boolean;
+	hideProgressBar?: boolean;
+	// Design settings
+	design?: FormDesign;
+}
+
+export interface FormDesign {
+	fontFamily?: string;
+	// Colors
+	titleColor?: string;
+	questionColor?: string;
+	buttonColor?: string;
+	buttonTextColor?: string;
+	// Sizes and alignment for welcome/final screens
+	welcomeSize?: 'sm' | 'md' | 'lg';
+	welcomeAlign?: 'left' | 'center';
+	// Corners
+	cornerRadius?: number;
+	// Background
+	backgroundColor?: string;
+	backgroundImageUrl?: string;
 }
 
 export interface Question {
