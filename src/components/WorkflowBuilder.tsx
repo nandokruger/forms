@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
 import { Plus, Trash2, HelpCircle, Calculator } from 'lucide-react';
-import { Question, WorkflowRule, FormWorkflow } from '../types';
+import { Question, WorkflowRule, FormWorkflow, FinalScreen } from '../types';
 
 interface WorkflowBuilderProps {
 	questions: Question[];
+	finals?: FinalScreen[];
 	workflow: FormWorkflow;
 	onChange: (workflow: FormWorkflow) => void;
 }
 
 export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 	questions,
+	finals = [],
 	workflow,
 	onChange,
 }) => {
@@ -21,6 +23,12 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 			label: `${index + 1} - ${question.title}`,
 			type: 'question',
 			icon: '❓',
+		})),
+		...finals.map((fin, index) => ({
+			id: fin.id,
+			label: `Final ${String.fromCharCode(65 + index)} - ${fin.title || ''}`.trim(),
+			type: 'final',
+			icon: '🏁',
 		})),
 		{
 			id: 'end_form',
@@ -124,7 +132,10 @@ export const WorkflowBuilder: React.FC<WorkflowBuilderProps> = ({
 		}
 
 		const question = questions.find((q) => q.id === destinationId);
-		return question ? question.title : 'Pergunta não encontrada';
+		if (question) return question.title;
+		const fin = finals.find((f) => f.id === destinationId);
+		if (fin) return `Final - ${fin.title || ''}`.trim();
+		return 'Destino não encontrado';
 	};
 
 	const getRuleTypeIcon = (type: string) => {

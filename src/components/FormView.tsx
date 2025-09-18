@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import { Form, Answer, Response, WorkflowRule } from '../types';
+import { Form, Answer, Response, WorkflowRule, FinalScreen } from '../types';
 import { generateId, validateEmail, validateRequired } from '../utils/helpers';
 
 interface FormViewProps {
@@ -14,10 +14,40 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 	const [answers, setAnswers] = useState<Record<string, any>>({});
 	const [isCompleted, setIsCompleted] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
+	const [showFinal, setShowFinal] = useState<FinalScreen | null>(null);
 
 	const currentQuestion = form.questions[currentQuestionIndex];
 	const isLastQuestion = currentQuestionIndex === form.questions.length - 1;
 	const progress = ((currentQuestionIndex + 1) / form.questions.length) * 100;
+
+	// Styles (computed early so they are available for all branches)
+	const pageStyle: React.CSSProperties = {
+		fontFamily: form.design?.fontFamily || undefined,
+		backgroundColor: form.design?.backgroundColor || undefined,
+		backgroundImage: form.design?.backgroundImageUrl
+			? `url(${form.design.backgroundImageUrl})`
+			: undefined,
+		backgroundSize: form.design?.backgroundImageUrl ? 'cover' : undefined,
+		backgroundPosition: form.design?.backgroundImageUrl ? 'center' : undefined,
+	};
+
+	const titleStyle: React.CSSProperties = { color: form.design?.titleColor || undefined };
+	const questionTextStyle: React.CSSProperties = { color: form.design?.questionColor || undefined };
+	const hasCustomButton = Boolean(
+		form.design?.buttonColor ||
+			form.design?.buttonTextColor ||
+			form.design?.cornerRadius !== undefined
+	);
+	const baseButtonClass = `inline-flex items-center px-8 py-3 text-base font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-lg`;
+	const defaultButtonClasses = `bg-blue-600 hover:bg-blue-700 focus:ring-blue-500`;
+	const buttonClass = `${baseButtonClass} ${hasCustomButton ? '' : defaultButtonClasses}`.trim();
+	const primaryButtonStyle: React.CSSProperties = {
+		backgroundColor: form.design?.buttonColor || undefined,
+		color: form.design?.buttonTextColor || undefined,
+		borderRadius:
+			form.design?.cornerRadius !== undefined ? `${form.design.cornerRadius}px` : undefined,
+	};
+	const useCustomBg = Boolean(form.design?.backgroundColor || form.design?.backgroundImageUrl);
 
 	const findQuestionIndexById = (questionId: string | undefined): number => {
 		if (!questionId) return -1;
@@ -64,7 +94,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		return result;
 	};
 
-	const computeNextIndexFromWorkflow = (): number | 'end' | null => {
+	const computeNextIndexFromWorkflow = (): number | 'end' | 'final' | string | null => {
 		const rules = form.workflow?.rules || [];
 		for (const rule of rules) {
 			if (rule.type === 'if') {
@@ -74,11 +104,14 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			if (rule.actions && rule.actions.length > 0) {
 				for (const action of rule.actions) {
 					if (action.type === 'jumpTo') {
-						if (action.targetQuestionId === 'end_form') return 'end';
+						if (action.targetQuestionId === 'end_form') return 'final';
+						// Allow jump to a final by id
+						const finalExists = (form.finals || []).some((f) => f.id === action.targetQuestionId);
+						if (finalExists) return action.targetQuestionId!;
 						const idx = findQuestionIndexById(action.targetQuestionId);
 						if (idx >= 0) return idx;
 					}
-					if (action.type === 'endForm') return 'end';
+					if (action.type === 'endForm') return 'final';
 					// showMessage and others are non-navigational here
 				}
 			}
@@ -105,51 +138,80 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		return !newErrors[currentQuestion.id];
 	};
 
+	const collectAllAnswers = (): Answer[] => {
+		// Collect answers for all questions that have been answered
+		// This ensures we capture answers even for questions that were skipped by workflow
+		return form.questions
+			.filter((question) => answers[question.id] !== undefined && answers[question.id] !== '')
+			.map((question) => ({
+				questionId: question.id,
+				value: answers[question.id] || '',
+			}));
+	};
+
+	const submitForm = () => {
+		const formAnswers = collectAllAnswers();
+		const response: Response = {
+			id: generateId(),
+			formId: form.id,
+			submittedAt: new Date().toISOString(),
+			answers: formAnswers,
+		};
+		onSubmit(response);
+		setIsCompleted(true);
+	};
+
 	const handleNext = () => {
 		if (!validateCurrentAnswer()) return;
 
 		// Evaluate workflow to determine next step
 		const nextByWorkflow = computeNextIndexFromWorkflow();
+
+		if (nextByWorkflow === 'final') {
+			const firstFinal = (form.finals || [])[0] || null;
+			if (firstFinal) {
+				setShowFinal(firstFinal);
+				return;
+			}
+			// Fallback to submit if no finals
+			submitForm();
+			return;
+		}
+
+		if (typeof nextByWorkflow === 'string') {
+			// Could be final id
+			const targetFinal = (form.finals || []).find((f) => f.id === nextByWorkflow) || null;
+			if (targetFinal) {
+				setShowFinal(targetFinal);
+				return;
+			}
+		}
+
 		if (nextByWorkflow === 'end') {
 			// Submit form
-			const formAnswers: Answer[] = form.questions.map((question) => ({
-				questionId: question.id,
-				value: answers[question.id] || '',
-			}));
-
-			const response: Response = {
-				id: generateId(),
-				formId: form.id,
-				submittedAt: new Date().toISOString(),
-				answers: formAnswers,
-			};
-
-			onSubmit(response);
-			setIsCompleted(true);
+			submitForm();
 			return;
 		}
 
 		if (typeof nextByWorkflow === 'number' && nextByWorkflow >= 0) {
-			setCurrentQuestionIndex(nextByWorkflow);
-			return;
+			// Prevent infinite loop - don't jump to the same question
+			if (nextByWorkflow === currentQuestionIndex) {
+				// Fall through to normal flow
+			} else {
+				setCurrentQuestionIndex(nextByWorkflow);
+				return;
+			}
 		}
 
 		if (isLastQuestion) {
+			// If there is a final screen, show it instead of immediate submit
+			const firstFinal = (form.finals || [])[0] || null;
+			if (firstFinal) {
+				setShowFinal(firstFinal);
+				return;
+			}
 			// Submit form
-			const formAnswers: Answer[] = form.questions.map((question) => ({
-				questionId: question.id,
-				value: answers[question.id] || '',
-			}));
-
-			const response: Response = {
-				id: generateId(),
-				formId: form.id,
-				submittedAt: new Date().toISOString(),
-				answers: formAnswers,
-			};
-
-			onSubmit(response);
-			setIsCompleted(true);
+			submitForm();
 		} else {
 			setCurrentQuestionIndex((prev) => prev + 1);
 		}
@@ -322,6 +384,61 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		}
 	};
 
+	if (showFinal) {
+		const useCustomBgFinal = Boolean(
+			form.design?.backgroundColor || form.design?.backgroundImageUrl
+		);
+		return (
+			<div
+				className={`min-h-screen${
+					useCustomBgFinal ? '' : ' bg-gradient-to-br from-blue-50 to-indigo-100'
+				}`}
+				style={pageStyle}
+			>
+				<div className='p-4'>
+					<div className='flex items-center justify-between max-w-4xl mx-auto'>
+						{!form.hideFormTitle && (
+							<h1 className='text-lg font-semibold' style={titleStyle}>
+								{form.title}
+							</h1>
+						)}
+						{!form.hideQuestionNumber && (
+							<div className='text-sm text-gray-500'>{/* no counter on final */}</div>
+						)}
+					</div>
+				</div>
+				<div className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'>
+					<div className='w-full max-w-2xl'>
+						<div className='text-center mb-8'>
+							<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+								{showFinal.title}
+							</h2>
+							{showFinal.description && (
+								<p className='text-xl mb-8' style={questionTextStyle}>
+									{showFinal.description}
+								</p>
+							)}
+						</div>
+						<div className='bg-white rounded-2xl shadow-lg p-8 mb-8 text-center'>
+							{showFinal.showButton !== false && (
+								<button
+									onClick={() => {
+										// End flow and submit
+										submitForm();
+									}}
+									className={buttonClass}
+									style={primaryButtonStyle}
+								>
+									{showFinal.buttonText || 'Concluir'}
+								</button>
+							)}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
+
 	if (isCompleted) {
 		return (
 			<div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4'>
@@ -360,35 +477,14 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		);
 	}
 
-	const pageStyle: React.CSSProperties = {
-		fontFamily: form.design?.fontFamily || undefined,
-		backgroundColor: form.design?.backgroundColor || undefined,
-		backgroundImage: form.design?.backgroundImageUrl
-			? `url(${form.design.backgroundImageUrl})`
-			: undefined,
-		backgroundSize: form.design?.backgroundImageUrl ? 'cover' : undefined,
-		backgroundPosition: form.design?.backgroundImageUrl ? 'center' : undefined,
-	};
-
-	const titleStyle: React.CSSProperties = { color: form.design?.titleColor || undefined };
-	const questionTextStyle: React.CSSProperties = { color: form.design?.questionColor || undefined };
-	const hasCustomButton = Boolean(
-		form.design?.buttonColor ||
-			form.design?.buttonTextColor ||
-			form.design?.cornerRadius !== undefined
-	);
-	const baseButtonClass = `inline-flex items-center px-8 py-3 text-base font-medium text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors shadow-lg`;
-	const defaultButtonClasses = `bg-blue-600 hover:bg-blue-700 focus:ring-blue-500`;
-	const buttonClass = `${baseButtonClass} ${hasCustomButton ? '' : defaultButtonClasses}`.trim();
-	const primaryButtonStyle: React.CSSProperties = {
-		backgroundColor: form.design?.buttonColor || undefined,
-		color: form.design?.buttonTextColor || undefined,
-		borderRadius:
-			form.design?.cornerRadius !== undefined ? `${form.design.cornerRadius}px` : undefined,
-	};
-
+	// removed duplicate style declarations (defined earlier)
 	return (
-		<div className='min-h-screen' style={pageStyle}>
+		<div
+			className={`min-h-screen${
+				useCustomBg ? '' : ' bg-gradient-to-br from-blue-50 to-indigo-100'
+			}`}
+			style={pageStyle}
+		>
 			{/* Progress Bar */}
 			{!form.hideProgressBar && (
 				<div className='fixed top-0 left-0 w-full h-1 bg-gray-200 z-50'>

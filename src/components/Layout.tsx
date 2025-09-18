@@ -51,12 +51,19 @@ export const Layout: React.FC<LayoutProps> = ({
 		<div className='min-h-screen bg-gray-50'>
 			{/* Header */}
 			<header className='bg-white border-b border-gray-200 sticky top-0 z-50'>
-				<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+				<div className=' mx-auto px-4 sm:px-6 lg:px-8'>
 					<div className='flex justify-between items-center h-16'>
 						{/* Logo */}
 						<div className='flex items-center'>
 							<div className='flex-shrink-0'>
-								<h1 className='text-2xl font-bold text-blue-600'>FormBuilder</h1>
+								<button
+									onClick={() => onNavigate?.('dashboard')}
+									className='flex items-center text-3xl font-semibold text-[#FF8300] hover:text-gray-600 transition-colors'
+									title='Voltar para o dashboard'
+								>
+									{'<'}
+									<span className='font-bold'>Op</span>Form{'>'}
+								</button>
 							</div>
 						</div>
 

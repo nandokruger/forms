@@ -17,7 +17,7 @@ import {
 	Share2,
 	ChevronDown,
 } from 'lucide-react';
-import { Form, Question, QuestionType, FormWorkflow } from '../types';
+import { Form, Question, QuestionType, FormWorkflow, FinalScreen } from '../types';
 import { createEmptyQuestion, getQuestionTypeLabel } from '../utils/helpers';
 import { WorkflowBuilder } from './WorkflowBuilder';
 import { ShareEmbed } from './ShareEmbed';
@@ -56,8 +56,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 		'content'
 	);
 	const [showDesign, setShowDesign] = useState(false);
+	const [selectedFinalId, setSelectedFinalId] = useState<string | null>(null);
 
 	const selectedQuestion = form.questions.find((q) => q.id === selectedQuestionId);
+	const finals = form.finals || [];
+	const selectedFinal = finals.find((f) => f.id === selectedFinalId) || null;
 
 	const addQuestion = () => {
 		const newQuestion = createEmptyQuestion(form.questions.length + 1);
@@ -66,7 +69,53 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			questions: [...form.questions, newQuestion],
 		};
 		onUpdateForm(updatedForm);
+		setSelectedFinalId(null);
 		setSelectedQuestionId(newQuestion.id);
+	};
+
+	const addFinal = () => {
+		const newFinal: FinalScreen = {
+			id: `${Date.now()}`,
+			title: '',
+			description: '',
+			buttonText: 'Voltar ao início',
+			showButton: true,
+		};
+		onUpdateForm({ ...form, finals: [...finals, newFinal] });
+		setSelectedQuestionId(null);
+		setSelectedFinalId(newFinal.id);
+	};
+
+	const updateFinal = (finalId: string, updates: Partial<FinalScreen>) => {
+		onUpdateForm({
+			...form,
+			finals: finals.map((f) => (f.id === finalId ? { ...f, ...updates } : f)),
+		});
+	};
+
+	const deleteFinal = (finalId: string) => {
+		onUpdateForm({ ...form, finals: finals.filter((f) => f.id !== finalId) });
+		if (selectedFinalId === finalId) {
+			const remaining = finals.filter((f) => f.id !== finalId);
+			setSelectedFinalId(remaining.length ? remaining[0].id : null);
+		}
+	};
+
+	const moveFinal = (finalId: string, direction: 'up' | 'down') => {
+		const list = [...finals];
+		const index = list.findIndex((f) => f.id === finalId);
+		if (index < 0) return;
+		if (direction === 'up' && index > 0) {
+			[list[index], list[index - 1]] = [list[index - 1], list[index]];
+		} else if (direction === 'down' && index < list.length - 1) {
+			[list[index], list[index + 1]] = [list[index + 1], list[index]];
+		}
+		onUpdateForm({ ...form, finals: list });
+	};
+
+	const getFinalCardTitle = (index: number, f: FinalScreen) => {
+		const letter = String.fromCharCode(65 + index);
+		return `Final ${letter}`;
 	};
 
 	const updateQuestion = (questionId: string, updates: Partial<Question>) => {
@@ -203,11 +252,14 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 								<div
 									key={question.id}
 									className={`p-3 rounded-lg border transition-all cursor-pointer ${
-										selectedQuestionId === question.id
+										selectedQuestionId === question.id && !selectedFinalId
 											? 'bg-blue-50 border-blue-200'
 											: 'bg-white border-gray-200 hover:border-gray-300'
 									}`}
-									onClick={() => setSelectedQuestionId(question.id)}
+									onClick={() => {
+										setSelectedFinalId(null);
+										setSelectedQuestionId(question.id);
+									}}
 								>
 									<div className='flex items-center justify-between'>
 										<div className='flex items-center space-x-2 flex-1 min-w-0'>
@@ -255,6 +307,82 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							))}
 						</div>
 					)}
+
+					{/* Finals Section */}
+					<div className='mt-6 border-t pt-4'>
+						<div className='flex items-center justify-between mb-2'>
+							<h3 className='text-sm font-semibold text-gray-900'>Finais</h3>
+							<button
+								onClick={addFinal}
+								className='p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors'
+								title='Adicionar final'
+							>
+								<Plus className='h-4 w-4' />
+							</button>
+						</div>
+						{finals.length === 0 ? (
+							<p className='text-xs text-gray-500'>
+								Nenhuma tela final. Clique no + para adicionar.
+							</p>
+						) : (
+							<div className='space-y-2'>
+								{finals.map((f, index) => (
+									<div
+										key={f.id}
+										className={`p-3 rounded-lg border transition-all cursor-pointer ${
+											selectedFinalId === f.id && !selectedQuestionId
+												? 'bg-blue-50 border-blue-200'
+												: 'bg-white border-gray-200 hover:border-gray-300'
+										}`}
+										onClick={() => {
+											setSelectedQuestionId(null);
+											setSelectedFinalId(f.id);
+										}}
+									>
+										<div className='flex items-center justify-between'>
+											<div className='flex items-center space-x-2 flex-1 min-w-0'>
+												<FileText className='h-4 w-4 text-gray-600' />
+												<span className='text-sm font-medium text-gray-900 truncate'>
+													{getFinalCardTitle(index, f)}
+												</span>
+											</div>
+											<div className='flex items-center space-x-1'>
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														moveFinal(f.id, 'up');
+													}}
+													disabled={index === 0}
+													className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+												>
+													<ArrowUp className='h-3 w-3' />
+												</button>
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														moveFinal(f.id, 'down');
+													}}
+													disabled={index === finals.length - 1}
+													className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+												>
+													<ArrowDown className='h-3 w-3' />
+												</button>
+												<button
+													onClick={(e) => {
+														e.stopPropagation();
+														deleteFinal(f.id);
+													}}
+													className='p-1 text-red-400 hover:text-red-600'
+												>
+													<Trash2 className='h-3 w-3' />
+												</button>
+											</div>
+										</div>
+									</div>
+								))}
+							</div>
+						)}
+					</div>
 				</div>
 			</div>
 
@@ -419,11 +547,79 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 									</div>
 								</div>
 							</div>
+						) : selectedFinal ? (
+							<div className='max-w-2xl mx-auto p-6'>
+								<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
+									<div className='space-y-6'>
+										<div>
+											<label className='block text-sm font-medium text-gray-700 mb-2'>
+												Título do final
+											</label>
+											<input
+												type='text'
+												value={selectedFinal.title}
+												onChange={(e) => updateFinal(selectedFinal.id, { title: e.target.value })}
+												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												placeholder='Título da tela final'
+											/>
+										</div>
+
+										<div>
+											<label className='block text-sm font-medium text-gray-700 mb-2'>
+												Descrição
+											</label>
+											<textarea
+												value={selectedFinal.description || ''}
+												onChange={(e) =>
+													updateFinal(selectedFinal.id, { description: e.target.value })
+												}
+												rows={3}
+												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												placeholder='Mensagem final...'
+											/>
+										</div>
+
+										<div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-end'>
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Texto do botão
+												</label>
+												<input
+													type='text'
+													value={selectedFinal.buttonText || ''}
+													onChange={(e) =>
+														updateFinal(selectedFinal.id, { buttonText: e.target.value })
+													}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md'
+													placeholder='Ex: Concluir'
+												/>
+											</div>
+											<div className='flex items-center justify-between'>
+												<span className='text-sm text-gray-700 mr-2'>Mostrar botão</span>
+												<button
+													onClick={() =>
+														updateFinal(selectedFinal.id, { showButton: !selectedFinal.showButton })
+													}
+													className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+														selectedFinal.showButton ? 'bg-blue-600' : 'bg-gray-200'
+													}`}
+													type='button'
+													aria-pressed={!!selectedFinal.showButton}
+												>
+													<span
+														className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+															selectedFinal.showButton ? 'translate-x-5' : 'translate-x-1'
+														}`}
+													/>
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
 						) : (
 							<div className='text-center py-12'>
-								<p className='text-gray-500'>
-									Selecione uma pergunta para editar ou adicione uma nova pergunta.
-								</p>
+								<p className='text-gray-500'>Selecione um item à esquerda para editar.</p>
 							</div>
 						)
 					) : activeTab === 'workflow' ? (
@@ -431,6 +627,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 						<div className='max-w-6xl mx-auto'>
 							<WorkflowBuilder
 								questions={form.questions}
+								finals={form.finals || []}
 								workflow={form.workflow || { rules: [] }}
 								onChange={(workflow: FormWorkflow) => updateFormDetails({ workflow })}
 							/>
