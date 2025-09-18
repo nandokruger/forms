@@ -48,6 +48,7 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 	const [linkCopied, setLinkCopied] = useState(false);
 	const [codeCopied, setCodeCopied] = useState(false);
 	const [showCodeModal, setShowCodeModal] = useState(false);
+	const [useScriptEmbed, setUseScriptEmbed] = useState(false);
 	// UI state for live previews
 	const [isPopupOpen, setIsPopupOpen] = useState(false);
 	const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -87,12 +88,14 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 				widthUnit: '%',
 				fullscreenMobile: true,
 			}));
+			setUseScriptEmbed(false);
 		}
 		if (preset === 'fullwidth') {
 			setEmbedConfig((prev) => ({
 				...prev,
 				mode: 'fullwidth',
 			}));
+			setUseScriptEmbed(false);
 		}
 	};
 
@@ -122,19 +125,120 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 	};
 
 	const generateEmbedCode = () => {
+		// Common values
 		const width =
 			embedConfig.widthUnit === '%' ? `${embedConfig.width}%` : `${embedConfig.width}px`;
 		const height = embedConfig.height === 'auto' ? 'auto' : `${embedConfig.heightValue}px`;
 		const opacity = (100 - embedConfig.backgroundTransparency) / 100;
+		const baseUrl = `${formUrl}?embed=true${embedConfig.hideHeaders ? '&hideHeaders=true' : ''}`;
 
+		// Unique ids to avoid collisions when pasting multiple embeds
+		const uid = `opforms_${form.id.replace(/[^a-zA-Z0-9_\-]/g, '')}`;
+
+		// Script-based embed snippet
+		if (useScriptEmbed) {
+			const attrs: string[] = [
+				`data-opforms`,
+				'',
+				`data-id="${form.id}"`,
+				`data-origin="${window.location.origin}"`,
+				`data-mode="${embedConfig.mode}"`,
+				`data-hide-headers="${embedConfig.hideHeaders ? 'true' : 'false'}"`,
+			];
+			if (embedConfig.mode === 'card' || embedConfig.mode === 'fullwidth') {
+				attrs.push(
+					`data-width="${embedConfig.width}"`,
+					`data-width-unit="${embedConfig.widthUnit}"`,
+					`data-height="${embedConfig.height}"`,
+					`data-height-value="${embedConfig.heightValue}"`,
+					`data-border-radius="8"`
+				);
+			}
+			if (embedConfig.mode === 'popup') {
+				attrs.push(
+					`data-popup-size="${embedConfig.popupSize}"`,
+					`data-button-text="${embedConfig.buttonText || 'experimente'}"`,
+					`data-button-color="${embedConfig.buttonColor || '#2563eb'}"`,
+					`data-font-size="${embedConfig.fontSize || 17}"`,
+					`data-border-radius="${embedConfig.borderRadius || 100}"`,
+					`data-text-button="${embedConfig.textButton ? 'true' : 'false'}"`
+				);
+			}
+			const div = `<div ${attrs.join(' ').trim()}></div>`;
+			const script = `<script src="${window.location.origin}/embed.js" async></script>`;
+			return `${div}
+${script}`;
+		}
+
+		// Card / Fullwidth default iframe
+		if (embedConfig.mode === 'card' || embedConfig.mode === 'fullwidth') {
+			return `<iframe 
+	  src="${baseUrl}"
+	  width="${width}"
+	  height="${height}"
+	  frameborder="0"
+	  style="border: none; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); background-color: rgba(255, 255, 255, ${opacity});"
+	  ${embedConfig.fullscreenMobile ? 'data-fullscreen-mobile="true"' : ''}
+	></iframe>`;
+		}
+
+		// Popup embed: button + lightweight modal with iframe
+		if (embedConfig.mode === 'popup') {
+			const dims = (() => {
+				switch (embedConfig.popupSize) {
+					case 'grande':
+						return { w: 900, h: 640 };
+					case 'pequeno':
+						return { w: 420, h: 360 };
+					case 'medio':
+					default:
+						return { w: 680, h: 520 };
+				}
+			})();
+			const isTextBtn = !!embedConfig.textButton;
+			const btnBg = isTextBtn ? 'transparent' : embedConfig.buttonColor || '#2563eb';
+			const btnColor = isTextBtn ? embedConfig.buttonColor || '#2563eb' : '#ffffff';
+			const btnBorder = isTextBtn ? 'none' : 'none';
+			const btnText = embedConfig.buttonText || 'experimente';
+			const btnRadius = `${embedConfig.borderRadius ?? 100}px`;
+			const btnFontSize = `${embedConfig.fontSize ?? 17}px`;
+
+			return `<!-- OpForms Popup Embed -->
+	<div style="display:flex;align-items:center;justify-content:center;width:100%;">
+	  <button id="${uid}_open" style="background:${btnBg};color:${btnColor};border:${btnBorder};border-radius:${btnRadius};font-size:${btnFontSize};${
+				isTextBtn ? 'padding:0;text-decoration:underline;box-shadow:none;' : 'padding:10px 16px;'
+			};cursor:pointer;">
+	    ${btnText}
+	  </button>
+	</div>
+	<div id="${uid}_overlay" style="position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:9999;">
+	  <div id="${uid}_modal" style="background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.2);position:relative;width:${
+				dims.w
+			}px;height:${dims.h}px;max-width:95vw;max-height:90vh;">
+		<button id="${uid}_close" aria-label="Fechar" style="position:absolute;top:8px;right:10px;background:transparent;border:none;font-size:22px;line-height:1;cursor:pointer;color:#6b7280;">×</button>
+		<iframe src="${baseUrl}" style="width:100%;height:100%;border:0;border-radius:12px"></iframe>
+	  </div>
+	</div>
+	<script>(function(){
+	  var openBtn=document.getElementById('${uid}_open');
+	  var overlay=document.getElementById('${uid}_overlay');
+	  var closeBtn=document.getElementById('${uid}_close');
+	  if(!openBtn||!overlay||!closeBtn) return;
+	  openBtn.addEventListener('click',function(){overlay.style.display='flex'});
+	  closeBtn.addEventListener('click',function(){overlay.style.display='none'});
+	  overlay.addEventListener('click',function(e){ if(e.target===overlay){ overlay.style.display='none'; }});
+	})();</script>`;
+		}
+
+		// Fallback to simple iframe for other modes for now
 		return `<iframe 
-  src="${formUrl}?embed=true${embedConfig.hideHeaders ? '&hideHeaders=true' : ''}"
-  width="${width}"
-  height="${height}"
-  frameborder="0"
-  style="border: none; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); background-color: rgba(255, 255, 255, ${opacity});"
-  ${embedConfig.fullscreenMobile ? 'data-fullscreen-mobile="true"' : ''}
-></iframe>`;
+	  src="${baseUrl}"
+	  width="${width}"
+	  height="${height}"
+	  frameborder="0"
+	  style="border: none; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); background-color: rgba(255, 255, 255, ${opacity});"
+	  ${embedConfig.fullscreenMobile ? 'data-fullscreen-mobile="true"' : ''}
+	></iframe>`;
 	};
 
 	const handleCopyCode = async () => {
@@ -182,22 +286,26 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 							</>
 						)}
 					</button>
+					<a
+						href={formUrl}
+						target='_blank'
+						rel='noopener noreferrer'
+						className='px-4 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-white'
+					>
+						Abrir
+					</a>
 				</div>
 			</div>
 
-			{/* Preview rápido */}
+			{/* Preview real */}
 			<div className='bg-white border border-gray-200 rounded-lg p-6'>
 				<h3 className='text-lg font-medium text-gray-900 mb-4'>Preview</h3>
-				<div className='bg-gray-50 rounded-lg p-4 border-2 border-dashed border-gray-300'>
-					<div className='text-center'>
-						<div className='w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3'>
-							<Globe className='h-6 w-6 text-blue-600' />
-						</div>
-						<h4 className='font-medium text-gray-900'>{form.title}</h4>
-						<p className='text-sm text-gray-500 mt-1'>
-							{form.questions.length} pergunta{form.questions.length !== 1 ? 's' : ''}
-						</p>
-					</div>
+				<div className='rounded-lg overflow-hidden border border-gray-200'>
+					<iframe
+						title='Preview do formulário (link)'
+						src={`${formUrl}?embed=true&hideHeaders=true`}
+						style={{ width: '100%', height: 640, border: '0' }}
+					/>
 				</div>
 			</div>
 		</div>
@@ -236,6 +344,15 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 						>
 							<Trash2 className='h-4 w-4' />
 						</button>
+					</div>
+					<div className='flex items-center space-x-2'>
+						<label className='text-sm text-gray-700'>Gerar via script</label>
+						<input
+							type='checkbox'
+							checked={useScriptEmbed}
+							onChange={(e) => setUseScriptEmbed(e.target.checked)}
+							className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+						/>
 					</div>
 				</div>
 
@@ -276,28 +393,29 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 
 						{embedConfig.mode === 'popup' && (
 							<div className='w-full h-[340px] relative bg-white'>
-								<div className='absolute inset-0 bg-gray-50 rounded-lg' />
-								<button
-									className='absolute bottom-6 right-6 shadow-md'
-									style={{
-										backgroundColor: embedConfig.textButton
-											? 'transparent'
-											: embedConfig.buttonColor,
-										color: embedConfig.textButton ? embedConfig.buttonColor : '#fff',
-										fontSize: `${embedConfig.fontSize}px`,
-										borderRadius: `${embedConfig.borderRadius}px`,
-										padding: '10px 16px',
-										border: embedConfig.textButton
-											? `1px dashed ${embedConfig.buttonColor}`
-											: 'none',
-									}}
-									onClick={() => setIsPopupOpen(true)}
-								>
-									{embedConfig.buttonText || 'experimente'}
-									{embedConfig.notificationDot && (
-										<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
-									)}
-								</button>
+								<div className='absolute inset-0 bg-gray-50 rounded-lg flex items-center justify-center'>
+									<button
+										className='shadow-md'
+										style={{
+											backgroundColor: embedConfig.textButton
+												? 'transparent'
+												: embedConfig.buttonColor,
+											color: embedConfig.textButton ? embedConfig.buttonColor : '#fff',
+											fontSize: `${embedConfig.fontSize}px`,
+											borderRadius: `${embedConfig.borderRadius}px`,
+											padding: embedConfig.textButton ? '0' : '10px 16px',
+											border: 'none',
+											textDecoration: embedConfig.textButton ? 'underline' : 'none',
+											boxShadow: embedConfig.textButton ? 'none' : undefined,
+										}}
+										onClick={() => setIsPopupOpen(true)}
+									>
+										{embedConfig.buttonText || 'experimente'}
+										{embedConfig.notificationDot && (
+											<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
+										)}
+									</button>
+								</div>
 								{isPopupOpen && (
 									<div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
 										<div
@@ -311,8 +429,28 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 											<button
 												className='absolute top-2 right-2 text-gray-400 hover:text-gray-600'
 												onClick={() => setIsPopupOpen(false)}
+												aria-label='Fechar'
 											>
-												✕
+												<svg
+													width='20'
+													height='20'
+													viewBox='0 0 24 24'
+													fill='none'
+													xmlns='http://www.w3.org/2000/svg'
+												>
+													<path
+														d='M6 6L18 18'
+														stroke='currentColor'
+														strokeWidth='2'
+														strokeLinecap='round'
+													/>
+													<path
+														d='M18 6L6 18'
+														stroke='currentColor'
+														strokeWidth='2'
+														strokeLinecap='round'
+													/>
+												</svg>
 											</button>
 											<iframe
 												title='Form popup'
@@ -531,6 +669,7 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form }) => {
 													slideTab: 'slideTab',
 												};
 												setEmbedConfig((prev) => ({ ...prev, mode: modeMap[value] }));
+												setUseScriptEmbed(value === 'popup');
 											}
 											if (details) details.open = false;
 										}}

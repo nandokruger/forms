@@ -61,8 +61,9 @@ export const Layout: React.FC<LayoutProps> = ({
 									className='flex items-center text-3xl font-semibold text-[#FF8300] hover:text-gray-600 transition-colors'
 									title='Voltar para o dashboard'
 								>
-									{'<'}
-									<span className='font-bold'>Op</span>Form{'>'}
+									{/* {'<'} */}
+									<span className='font-bold'>Op</span>Form
+									{/* {'>'} */}
 								</button>
 							</div>
 						</div>
