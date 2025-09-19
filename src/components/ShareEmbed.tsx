@@ -300,13 +300,19 @@ ${script}`;
 			{/* Preview real */}
 			<div className='bg-white border border-gray-200 rounded-lg p-6'>
 				<h3 className='text-lg font-medium text-gray-900 mb-4'>Preview</h3>
-				<div className='rounded-lg overflow-hidden border border-gray-200'>
-					<iframe
-						title='Preview do formulário (link)'
-						src={`${formUrl}?embed=true&hideHeaders=true`}
-						style={{ width: '100%', height: 640, border: '0' }}
-					/>
-				</div>
+				{form.isPublished ? (
+					<div className='rounded-lg overflow-hidden border border-gray-200'>
+						<iframe
+							title='Preview do formulário (link)'
+							src={`${formUrl}?embed=true&hideHeaders=true`}
+							style={{ width: '100%', height: 640, border: '0' }}
+						/>
+					</div>
+				) : (
+					<div className='rounded-lg border-2 border-dashed border-gray-300 h-64 flex items-center justify-center text-center text-gray-500'>
+						<p>Preview disponível apenas em formulários publicados.</p>
+					</div>
+				)}
 			</div>
 		</div>
 	);
@@ -359,248 +365,258 @@ ${script}`;
 				{/* Preview */}
 				<div className='bg-white border border-gray-200 rounded-lg p-6 min-h-[400px]'>
 					<h3 className='text-sm font-medium text-gray-700 mb-4'>Preview</h3>
-					<div className='relative border-2 border-dashed border-gray-300 rounded-lg overflow-hidden min-h-[260px] flex items-center justify-center'>
-						{/* Mode-specific preview */}
-						{embedConfig.mode === 'card' && (
-							<div className='bg-gray-50 rounded-lg shadow-inner w-full flex items-center justify-center p-4'>
-								<iframe
-									title='Form preview - card'
-									src={embedUrl}
-									style={{
-										width:
-											embedConfig.widthUnit === '%'
-												? `${Math.min(embedConfig.width, 100)}%`
-												: `${Math.min(embedConfig.width, 1000)}px`,
-										height:
-											embedConfig.height === 'auto' ? 500 : Math.min(embedConfig.heightValue, 1000),
-										border: 'none',
-										borderRadius: 8,
-										boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
-									}}
-								/>
-							</div>
-						)}
-
-						{embedConfig.mode === 'fullwidth' && (
-							<div className='w-full bg-gray-50 rounded-lg shadow-inner p-4'>
-								<iframe
-									title='Form preview - fullwidth'
-									src={embedUrl}
-									style={{ width: '100%', height: 520, border: 'none', borderRadius: 8 }}
-								/>
-							</div>
-						)}
-
-						{embedConfig.mode === 'popup' && (
-							<div className='w-full h-[340px] relative bg-white'>
-								<div className='absolute inset-0 bg-gray-50 rounded-lg flex items-center justify-center'>
-									<button
-										className='shadow-md'
+					{form.isPublished ? (
+						<div className='relative border-2 border-dashed border-gray-300 rounded-lg overflow-hidden min-h-[260px] flex items-center justify-center'>
+							{/* Mode-specific preview */}
+							{embedConfig.mode === 'card' && (
+								<div className='bg-gray-50 rounded-lg shadow-inner w-full flex items-center justify-center p-4'>
+									<iframe
+										title='Form preview - card'
+										src={embedUrl}
 										style={{
-											backgroundColor: embedConfig.textButton
-												? 'transparent'
-												: embedConfig.buttonColor,
-											color: embedConfig.textButton ? embedConfig.buttonColor : '#fff',
-											fontSize: `${embedConfig.fontSize}px`,
-											borderRadius: `${embedConfig.borderRadius}px`,
-											padding: embedConfig.textButton ? '0' : '10px 16px',
+											width:
+												embedConfig.widthUnit === '%'
+													? `${Math.min(embedConfig.width, 100)}%`
+													: `${Math.min(embedConfig.width, 1000)}px`,
+											height:
+												embedConfig.height === 'auto'
+													? 500
+													: Math.min(embedConfig.heightValue, 1000),
 											border: 'none',
-											textDecoration: embedConfig.textButton ? 'underline' : 'none',
-											boxShadow: embedConfig.textButton ? 'none' : undefined,
+											borderRadius: 8,
+											boxShadow: '0 4px 10px rgba(0,0,0,0.08)',
 										}}
-										onClick={() => setIsPopupOpen(true)}
-									>
-										{embedConfig.buttonText || 'experimente'}
-										{embedConfig.notificationDot && (
-											<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
-										)}
-									</button>
+									/>
 								</div>
-								{isPopupOpen && (
-									<div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
-										<div
-											className='absolute inset-0 bg-black/50'
-											onClick={() => setIsPopupOpen(false)}
-										/>
-										<div
-											className='relative bg-white rounded-lg shadow-xl overflow-hidden'
-											style={getPopupDimensions()}
+							)}
+
+							{embedConfig.mode === 'fullwidth' && (
+								<div className='w-full bg-gray-50 rounded-lg shadow-inner p-4'>
+									<iframe
+										title='Form preview - fullwidth'
+										src={embedUrl}
+										style={{ width: '100%', height: 520, border: 'none', borderRadius: 8 }}
+									/>
+								</div>
+							)}
+
+							{embedConfig.mode === 'popup' && (
+								<div className='w-full h-[340px] relative bg-white'>
+									<div className='absolute inset-0 bg-gray-50 rounded-lg flex items-center justify-center'>
+										<button
+											className='shadow-md'
+											style={{
+												backgroundColor: embedConfig.textButton
+													? 'transparent'
+													: embedConfig.buttonColor,
+												color: embedConfig.textButton ? embedConfig.buttonColor : '#fff',
+												fontSize: `${embedConfig.fontSize}px`,
+												borderRadius: `${embedConfig.borderRadius}px`,
+												padding: embedConfig.textButton ? '0' : '10px 16px',
+												border: 'none',
+												textDecoration: embedConfig.textButton ? 'underline' : 'none',
+												boxShadow: embedConfig.textButton ? 'none' : undefined,
+											}}
+											onClick={() => setIsPopupOpen(true)}
 										>
-											<button
-												className='absolute top-2 right-2 text-gray-400 hover:text-gray-600'
+											{embedConfig.buttonText || 'experimente'}
+											{embedConfig.notificationDot && (
+												<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
+											)}
+										</button>
+									</div>
+									{isPopupOpen && (
+										<div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+											<div
+												className='absolute inset-0 bg-black/50'
 												onClick={() => setIsPopupOpen(false)}
-												aria-label='Fechar'
+											/>
+											<div
+												className='relative bg-white rounded-lg shadow-xl overflow-hidden'
+												style={getPopupDimensions()}
 											>
-												<svg
-													width='20'
-													height='20'
-													viewBox='0 0 24 24'
-													fill='none'
-													xmlns='http://www.w3.org/2000/svg'
+												<button
+													className='absolute top-2 right-2 text-gray-400 hover:text-gray-600'
+													onClick={() => setIsPopupOpen(false)}
+													aria-label='Fechar'
 												>
-													<path
-														d='M6 6L18 18'
-														stroke='currentColor'
-														strokeWidth='2'
-														strokeLinecap='round'
-													/>
-													<path
-														d='M18 6L6 18'
-														stroke='currentColor'
-														strokeWidth='2'
-														strokeLinecap='round'
-													/>
-												</svg>
-											</button>
-											<iframe
-												title='Form popup'
-												src={embedUrl}
-												style={{ width: '100%', height: '100%', border: 'none' }}
-											/>
+													<svg
+														width='20'
+														height='20'
+														viewBox='0 0 24 24'
+														fill='none'
+														xmlns='http://www.w3.org/2000/svg'
+													>
+														<path
+															d='M6 6L18 18'
+															stroke='currentColor'
+															strokeWidth='2'
+															strokeLinecap='round'
+														/>
+														<path
+															d='M18 6L6 18'
+															stroke='currentColor'
+															strokeWidth='2'
+															strokeLinecap='round'
+														/>
+													</svg>
+												</button>
+												<iframe
+													title='Form popup'
+													src={embedUrl}
+													style={{ width: '100%', height: '100%', border: 'none' }}
+												/>
+											</div>
 										</div>
-									</div>
-								)}
-							</div>
-						)}
-
-						{embedConfig.mode === 'sidebar' && (
-							<div className='w-full h-[340px] relative bg-white'>
-								<div className='absolute inset-0 bg-gray-50 rounded-lg' />
-								<div
-									className='absolute top-1/2 -translate-y-1/2'
-									style={{
-										[embedConfig.sidebarPosition === 'esquerda' ? 'left' : 'right']: '0.5rem',
-									}}
-								>
-									<button
-										className='shadow-md -rotate-90 origin-bottom-left'
-										style={{
-											backgroundColor: embedConfig.textButton
-												? 'transparent'
-												: embedConfig.buttonColor,
-											color: embedConfig.textButton ? embedConfig.buttonColor : '#fff',
-											fontSize: `${embedConfig.fontSize}px`,
-											borderRadius: `${embedConfig.borderRadius}px`,
-											padding: '10px 16px',
-											border: embedConfig.textButton
-												? `1px dashed ${embedConfig.buttonColor}`
-												: 'none',
-										}}
-										onClick={() => setIsSidebarOpen((v) => !v)}
-									>
-										{embedConfig.buttonText || 'experimente'}
-										{embedConfig.notificationDot && (
-											<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
-										)}
-									</button>
+									)}
 								</div>
-								{/* Sidebar panel */}
-								{isSidebarOpen && (
+							)}
+
+							{embedConfig.mode === 'sidebar' && (
+								<div className='w-full h-[340px] relative bg-white'>
+									<div className='absolute inset-0 bg-gray-50 rounded-lg' />
 									<div
-										className='absolute top-0 bottom-0 bg-white shadow-xl border border-gray-200'
+										className='absolute top-1/2 -translate-y-1/2'
 										style={{
-											width: 420,
-											[embedConfig.sidebarPosition === 'esquerda' ? 'left' : 'right']: 0,
-											borderRadius:
-												embedConfig.sidebarPosition === 'esquerda' ? '0 8px 8px 0' : '8px 0 0 8px',
+											[embedConfig.sidebarPosition === 'esquerda' ? 'left' : 'right']: '0.5rem',
 										}}
 									>
-										<iframe
-											title='Form sidebar'
-											src={embedUrl}
-											style={{ width: '100%', height: '100%', border: 'none' }}
-										/>
-									</div>
-								)}
-							</div>
-						)}
-
-						{embedConfig.mode === 'floating' && (
-							<div className='w-full h-[340px] relative bg-white'>
-								<div className='absolute inset-0 bg-gray-50 rounded-lg' />
-								<button
-									className='absolute bottom-6 right-6 shadow-md'
-									style={{
-										backgroundColor: embedConfig.buttonColor,
-										color: '#fff',
-										fontSize: `${embedConfig.fontSize}px`,
-										borderRadius: `${embedConfig.borderRadius}px`,
-										padding: '12px 16px',
-									}}
-									onClick={() => setIsFloatingOpen(true)}
-								>
-									{embedConfig.customIcon ? (
-										<span className='inline-block h-4 w-4 bg-white/30 rounded' />
-									) : (
-										<span>Abrir</span>
-									)}
-									{embedConfig.notificationDot && (
-										<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
-									)}
-								</button>
-								{isFloatingOpen && (
-									<div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
-										<div
-											className='absolute inset-0 bg-black/50'
-											onClick={() => setIsFloatingOpen(false)}
-										/>
-										<div
-											className='relative bg-white rounded-lg shadow-xl overflow-hidden'
-											style={{ width: 720, height: 560 }}
+										<button
+											className='shadow-md -rotate-90 origin-bottom-left'
+											style={{
+												backgroundColor: embedConfig.textButton
+													? 'transparent'
+													: embedConfig.buttonColor,
+												color: embedConfig.textButton ? embedConfig.buttonColor : '#fff',
+												fontSize: `${embedConfig.fontSize}px`,
+												borderRadius: `${embedConfig.borderRadius}px`,
+												padding: '10px 16px',
+												border: embedConfig.textButton
+													? `1px dashed ${embedConfig.buttonColor}`
+													: 'none',
+											}}
+											onClick={() => setIsSidebarOpen((v) => !v)}
 										>
-											<button
-												className='absolute top-2 right-2 text-gray-400 hover:text-gray-600'
-												onClick={() => setIsFloatingOpen(false)}
-											>
-												✕
-											</button>
+											{embedConfig.buttonText || 'experimente'}
+											{embedConfig.notificationDot && (
+												<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
+											)}
+										</button>
+									</div>
+									{/* Sidebar panel */}
+									{isSidebarOpen && (
+										<div
+											className='absolute top-0 bottom-0 bg-white shadow-xl border border-gray-200'
+											style={{
+												width: 420,
+												[embedConfig.sidebarPosition === 'esquerda' ? 'left' : 'right']: 0,
+												borderRadius:
+													embedConfig.sidebarPosition === 'esquerda'
+														? '0 8px 8px 0'
+														: '8px 0 0 8px',
+											}}
+										>
 											<iframe
-												title='Form floating'
+												title='Form sidebar'
 												src={embedUrl}
 												style={{ width: '100%', height: '100%', border: 'none' }}
 											/>
 										</div>
-									</div>
-								)}
-							</div>
-						)}
+									)}
+								</div>
+							)}
 
-						{embedConfig.mode === 'slideTab' && (
-							<div className='w-full h-[340px] relative bg-white'>
-								<div className='absolute inset-0 bg-gray-50 rounded-lg' />
-								<div className='absolute top-1/2 -translate-y-1/2 left-0'>
+							{embedConfig.mode === 'floating' && (
+								<div className='w-full h-[340px] relative bg-white'>
+									<div className='absolute inset-0 bg-gray-50 rounded-lg' />
 									<button
-										className='shadow-md'
+										className='absolute bottom-6 right-6 shadow-md'
 										style={{
 											backgroundColor: embedConfig.buttonColor,
 											color: '#fff',
 											fontSize: `${embedConfig.fontSize}px`,
 											borderRadius: `${embedConfig.borderRadius}px`,
-											padding: '10px 16px',
+											padding: '12px 16px',
 										}}
-										onClick={() => setIsSlideOpen((v) => !v)}
+										onClick={() => setIsFloatingOpen(true)}
 									>
-										{embedConfig.slideTabText || 'experimente'}
+										{embedConfig.customIcon ? (
+											<span className='inline-block h-4 w-4 bg-white/30 rounded' />
+										) : (
+											<span>Abrir</span>
+										)}
 										{embedConfig.notificationDot && (
 											<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
 										)}
 									</button>
+									{isFloatingOpen && (
+										<div className='fixed inset-0 z-50 flex items-center justify-center p-4'>
+											<div
+												className='absolute inset-0 bg-black/50'
+												onClick={() => setIsFloatingOpen(false)}
+											/>
+											<div
+												className='relative bg-white rounded-lg shadow-xl overflow-hidden'
+												style={{ width: 720, height: 560 }}
+											>
+												<button
+													className='absolute top-2 right-2 text-gray-400 hover:text-gray-600'
+													onClick={() => setIsFloatingOpen(false)}
+												>
+													✕
+												</button>
+												<iframe
+													title='Form floating'
+													src={embedUrl}
+													style={{ width: '100%', height: '100%', border: 'none' }}
+												/>
+											</div>
+										</div>
+									)}
 								</div>
-								{isSlideOpen && (
-									<div
-										className='absolute top-0 bottom-0 right-0 bg-white shadow-xl border border-gray-200'
-										style={{ width: 420 }}
-									>
-										<iframe
-											title='Form slide tab'
-											src={embedUrl}
-											style={{ width: '100%', height: '100%', border: 'none' }}
-										/>
+							)}
+
+							{embedConfig.mode === 'slideTab' && (
+								<div className='w-full h-[340px] relative bg-white'>
+									<div className='absolute inset-0 bg-gray-50 rounded-lg' />
+									<div className='absolute top-1/2 -translate-y-1/2 left-0'>
+										<button
+											className='shadow-md'
+											style={{
+												backgroundColor: embedConfig.buttonColor,
+												color: '#fff',
+												fontSize: `${embedConfig.fontSize}px`,
+												borderRadius: `${embedConfig.borderRadius}px`,
+												padding: '10px 16px',
+											}}
+											onClick={() => setIsSlideOpen((v) => !v)}
+										>
+											{embedConfig.slideTabText || 'experimente'}
+											{embedConfig.notificationDot && (
+												<span className='inline-block ml-2 h-2 w-2 rounded-full bg-red-500 align-middle' />
+											)}
+										</button>
 									</div>
-								)}
-							</div>
-						)}
-					</div>
+									{isSlideOpen && (
+										<div
+											className='absolute top-0 bottom-0 right-0 bg-white shadow-xl border border-gray-200'
+											style={{ width: 420 }}
+										>
+											<iframe
+												title='Form slide tab'
+												src={embedUrl}
+												style={{ width: '100%', height: '100%', border: 'none' }}
+											/>
+										</div>
+									)}
+								</div>
+							)}
+						</div>
+					) : (
+						<div className='relative border-2 border-dashed border-gray-300 rounded-lg min-h-[260px] flex items-center justify-center text-center text-gray-500'>
+							<p>Preview disponível apenas em formulários publicados.</p>
+						</div>
+					)}
 				</div>
 			</div>
 

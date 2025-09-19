@@ -48,6 +48,16 @@ export interface Question {
 	required: boolean;
 	order: number;
 	options?: string[];
+	// For question groups
+	questions?: Question[];
+}
+
+export interface QuestionGroup {
+	id: string;
+	title: string;
+	description?: string;
+	questions: Question[];
+	order: number;
 }
 
 export type QuestionType =
@@ -57,7 +67,9 @@ export type QuestionType =
 	| 'email'
 	| 'number'
 	| 'date'
-	| 'rating';
+	| 'rating'
+	| 'question-group'
+	| 'multiquestion';
 
 export interface Response {
 	id: string;

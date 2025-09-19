@@ -271,6 +271,10 @@ function App() {
 
 	// Render current view
 	const renderCurrentView = () => {
+		const search = typeof window !== 'undefined' ? window.location.search : '';
+		const params = new URLSearchParams(search);
+		const isEmbed = params.get('embed') === 'true' || params.get('hideHeaders') === 'true';
+
 		switch (state.currentView) {
 			case 'login':
 			case 'signup':
@@ -297,7 +301,6 @@ function App() {
 						onSave={async () => {
 							try {
 								await saveForm(state.currentForm!);
-								alert('Formulário salvo com sucesso!');
 								setView('dashboard');
 								// reload forms list
 								const forms = await getAllForms();
@@ -322,7 +325,7 @@ function App() {
 					<FormView
 						form={state.currentForm}
 						onSubmit={handleSubmitResponse}
-						onBack={() => setView('form-editor')}
+						onBack={!isEmbed ? () => setView('form-editor') : undefined}
 					/>
 				) : (
 					<div />

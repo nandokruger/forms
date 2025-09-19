@@ -16,9 +16,14 @@ import {
 	FileText,
 	Share2,
 	ChevronDown,
+	ChevronUp,
+	Folder,
+	Layers,
+	PlayCircle,
 } from 'lucide-react';
-import { Form, Question, QuestionType, FormWorkflow, FinalScreen } from '../types';
+import { Form, Question, QuestionType, FormWorkflow, FinalScreen, WelcomeScreen } from '../types';
 import { createEmptyQuestion, getQuestionTypeLabel } from '../utils/helpers';
+import { useToast } from './ToastProvider';
 import { WorkflowBuilder } from './WorkflowBuilder';
 import { ShareEmbed } from './ShareEmbed';
 import { saveForm } from '../services/formService';
@@ -40,6 +45,8 @@ const questionTypeIcons: Record<QuestionType, React.ReactNode> = {
 	number: <Hash className='h-4 w-4' />,
 	date: <Calendar className='h-4 w-4' />,
 	rating: <Star className='h-4 w-4' />,
+	'question-group': <Folder className='h-4 w-4' />,
+	multiquestion: <Layers className='h-4 w-4' />,
 };
 
 export const FormEditor: React.FC<FormEditorProps> = ({
@@ -52,15 +59,36 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(
 		form.questions[0]?.id || null
 	);
+	const [selectedGroupQuestionId, setSelectedGroupQuestionId] = useState<string | null>(null);
 	const [activeTab, setActiveTab] = useState<'content' | 'workflow' | 'settings' | 'share'>(
 		'content'
 	);
 	const [showDesign, setShowDesign] = useState(false);
+	const [isWelcomeScreenSelected, setIsWelcomeScreenSelected] = useState<boolean>(false);
+	const [isSaving, setIsSaving] = useState(false);
 	const [selectedFinalId, setSelectedFinalId] = useState<string | null>(null);
+	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
+		() =>
+			new Set(
+				form.questions
+					.filter((q) => q.type === 'question-group' || q.type === 'multiquestion')
+					.map((q) => q.id)
+			)
+	);
+
+	const { showToast } = useToast();
 
 	const selectedQuestion = form.questions.find((q) => q.id === selectedQuestionId);
+	const welcomeScreen = form.welcomeScreen;
 	const finals = form.finals || [];
 	const selectedFinal = finals.find((f) => f.id === selectedFinalId) || null;
+
+	// Find selected group question if we're in a group
+	const selectedGroupQuestion =
+		(selectedQuestion?.type === 'question-group' || selectedQuestion?.type === 'multiquestion') &&
+		selectedGroupQuestionId
+			? selectedQuestion.questions?.find((q) => q.id === selectedGroupQuestionId)
+			: null;
 
 	const addQuestion = () => {
 		const newQuestion = createEmptyQuestion(form.questions.length + 1);
@@ -69,8 +97,107 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			questions: [...form.questions, newQuestion],
 		};
 		onUpdateForm(updatedForm);
+		setIsWelcomeScreenSelected(false);
 		setSelectedFinalId(null);
 		setSelectedQuestionId(newQuestion.id);
+	};
+
+	const handleSave = async () => {
+		setIsSaving(true);
+		try {
+			await saveForm(form);
+			showToast('Formulário salvo com sucesso!', 'success');
+			onSave(); // Notifica o componente pai
+		} catch (err) {
+			showToast('Erro ao salvar o formulário.', 'error');
+			console.error('Save error:', err);
+		} finally {
+			setIsSaving(false);
+		}
+	};
+
+	const toggleGroupExpansion = (groupId: string) => {
+		setExpandedGroups((prev) => {
+			const newSet = new Set(prev);
+			if (newSet.has(groupId)) {
+				newSet.delete(groupId);
+			} else {
+				newSet.add(groupId);
+			}
+			return newSet;
+		});
+	};
+
+	const addQuestionGroup = () => {
+		const newGroup: Question = {
+			id: `${Date.now()}`,
+			type: 'question-group',
+			title: 'Novo Grupo de Perguntas',
+			description: '',
+			required: false,
+			order: form.questions.length + 1,
+			questions: [],
+		};
+		const updatedForm = {
+			...form,
+			questions: [...form.questions, newGroup],
+		};
+		onUpdateForm(updatedForm);
+		setIsWelcomeScreenSelected(false);
+		setSelectedFinalId(null);
+		setSelectedQuestionId(newGroup.id);
+		setExpandedGroups((prev) => new Set(prev).add(newGroup.id));
+	};
+
+	const addMultiQuestion = () => {
+		const newMultiQuestion: Question = {
+			id: `${Date.now()}`,
+			type: 'multiquestion',
+			title: 'Novas Múltiplas Perguntas',
+			description: '',
+			required: false,
+			order: form.questions.length + 1,
+			questions: [],
+		};
+		const updatedForm = {
+			...form,
+			questions: [...form.questions, newMultiQuestion],
+		};
+		onUpdateForm(updatedForm);
+		setIsWelcomeScreenSelected(false);
+		setSelectedFinalId(null);
+		setSelectedQuestionId(newMultiQuestion.id);
+		setExpandedGroups((prev) => new Set(prev).add(newMultiQuestion.id));
+	};
+
+	const addWelcomeScreen = () => {
+		if (form.welcomeScreen) return;
+		const newWelcomeScreen: WelcomeScreen = {
+			id: 'welcome-screen',
+			title: 'Bem-vindo(a)!',
+			description: 'Clique no botão para começar.',
+			buttonText: 'Começar',
+			showButton: true,
+		};
+		onUpdateForm({ ...form, welcomeScreen: newWelcomeScreen });
+		setIsWelcomeScreenSelected(true);
+		setSelectedQuestionId(null);
+		setSelectedFinalId(null);
+	};
+
+	const updateWelcomeScreen = (updates: Partial<WelcomeScreen>) => {
+		if (!form.welcomeScreen) return;
+		onUpdateForm({
+			...form,
+			welcomeScreen: { ...form.welcomeScreen, ...updates },
+		});
+	};
+
+	const deleteWelcomeScreen = () => {
+		const newForm = { ...form };
+		delete newForm.welcomeScreen;
+		onUpdateForm(newForm);
+		setIsWelcomeScreenSelected(false);
 	};
 
 	const addFinal = () => {
@@ -82,6 +209,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			showButton: true,
 		};
 		onUpdateForm({ ...form, finals: [...finals, newFinal] });
+		setIsWelcomeScreenSelected(false);
 		setSelectedQuestionId(null);
 		setSelectedFinalId(newFinal.id);
 	};
@@ -162,23 +290,95 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 		onUpdateForm({ ...form, ...updates });
 	};
 
+	// Functions for managing questions within groups
+	const addQuestionToGroup = (groupId: string) => {
+		const group = form.questions.find((q) => q.id === groupId);
+		if (!group || (group.type !== 'question-group' && group.type !== 'multiquestion')) return;
+
+		const newQuestion = createEmptyQuestion((group.questions || []).length + 1);
+		const updatedGroup = {
+			...group,
+			questions: [...(group.questions || []), newQuestion],
+		};
+
+		const updatedForm = {
+			...form,
+			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
+		};
+		onUpdateForm(updatedForm);
+	};
+
+	const updateQuestionInGroup = (
+		groupId: string,
+		questionId: string,
+		updates: Partial<Question>
+	) => {
+		const group = form.questions.find((q) => q.id === groupId);
+		if (!group || (group.type !== 'question-group' && group.type !== 'multiquestion')) return;
+
+		const updatedGroup = {
+			...group,
+			questions: (group.questions || []).map((q) =>
+				q.id === questionId ? { ...q, ...updates } : q
+			),
+		};
+
+		const updatedForm = {
+			...form,
+			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
+		};
+		onUpdateForm(updatedForm);
+	};
+
+	const deleteQuestionFromGroup = (groupId: string, questionId: string) => {
+		const group = form.questions.find((q) => q.id === groupId);
+		if (!group || (group.type !== 'question-group' && group.type !== 'multiquestion')) return;
+
+		const updatedGroup = {
+			...group,
+			questions: (group.questions || []).filter((q) => q.id !== questionId),
+		};
+
+		const updatedForm = {
+			...form,
+			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
+		};
+		onUpdateForm(updatedForm);
+	};
+
+	const moveQuestionInGroup = (groupId: string, questionId: string, direction: 'up' | 'down') => {
+		const group = form.questions.find((q) => q.id === groupId);
+		if (!group || (group.type !== 'question-group' && group.type !== 'multiquestion')) return;
+
+		const questions = [...(group.questions || [])];
+		const index = questions.findIndex((q) => q.id === questionId);
+
+		if (direction === 'up' && index > 0) {
+			[questions[index], questions[index - 1]] = [questions[index - 1], questions[index]];
+		} else if (direction === 'down' && index < questions.length - 1) {
+			[questions[index], questions[index + 1]] = [questions[index + 1], questions[index]];
+		}
+
+		// Update order
+		questions.forEach((q, i) => {
+			q.order = i + 1;
+		});
+
+		const updatedGroup = { ...group, questions };
+		const updatedForm = {
+			...form,
+			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
+		};
+		onUpdateForm(updatedForm);
+	};
+
 	//
 
 	return (
 		<div className='h-screen bg-gray-50 flex'>
 			{/* Left Sidebar - Questions List */}
 			<div className='w-80 bg-white border-r border-gray-200 flex flex-col'>
-				<div className='p-6 border-b border-gray-200'>
-					<div className='flex items-center justify-between mb-4'>
-						<h2 className='text-lg font-semibold text-gray-900'>Perguntas</h2>
-						<button
-							onClick={addQuestion}
-							className='p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors'
-						>
-							<Plus className='h-5 w-5' />
-						</button>
-					</div>
-
+				<div className='px-6 pt-4 pb-0 border-b border-gray-200'>
 					<div className='relative'>
 						<details className='group'>
 							<summary className='list-none w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer flex items-center justify-between'>
@@ -238,9 +438,106 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							</div>
 						</details>
 					</div>
+					{/* Top Header */}
+					<div className='flex items-center space-x-4 mb-1 mt-5 justify-between'>
+						<h2 className='text-lg font-semibold text-gray-900'>Perguntas</h2>
+						<div className='relative group'>
+							<details className='group'>
+								<summary className='list-none flex items-center space-x-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer'>
+									<span className='flex items-center'>
+										<Plus className='h-3 w-3 mr-2 text-gray-600' />
+										Add conteúdo
+									</span>
+									<ChevronDown className='h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform' />
+								</summary>
+								<div className='absolute z-10 mt-2 w-max bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden'>
+									<button
+										onClick={(e) => {
+											addWelcomeScreen();
+											const details = e.currentTarget.closest('details');
+											if (details) details.open = false;
+										}}
+										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100'
+										disabled={!!form.welcomeScreen}
+									>
+										<PlayCircle className='h-4 w-4 mr-2 text-orange-600' /> Tela de Início
+									</button>
+									<button
+										onClick={(e) => {
+											addQuestion();
+											const details = e.currentTarget.closest('details');
+											if (details) details.open = false;
+										}}
+										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
+									>
+										<Plus className='h-4 w-4 mr-2 text-blue-600' /> Adicionar pergunta
+									</button>
+									<button
+										onClick={(e) => {
+											addQuestionGroup();
+											const details = e.currentTarget.closest('details');
+											if (details) details.open = false;
+										}}
+										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
+									>
+										<Folder className='h-4 w-4 mr-2 text-green-600' /> Adicionar grupo de perguntas
+									</button>
+									<button
+										onClick={(e) => {
+											addMultiQuestion();
+											const details = e.currentTarget.closest('details');
+											if (details) details.open = false;
+										}}
+										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
+									>
+										<Layers className='h-4 w-4 mr-2 text-purple-600' /> Adicionar múltiplas
+										perguntas
+									</button>
+								</div>
+							</details>
+						</div>
+					</div>
 				</div>
 
 				<div className='flex-1 overflow-y-auto p-4'>
+					{/* Welcome Screen Section */}
+					{form.welcomeScreen && (
+						<div className='mb-4'>
+							<h3 className='text-sm font-semibold text-gray-900 mb-2'>Início</h3>
+							<div
+								className={`p-3 rounded-lg border transition-all cursor-pointer ${
+									isWelcomeScreenSelected
+										? 'bg-blue-50 border-blue-200'
+										: 'bg-white border-gray-200 hover:border-gray-300'
+								}`}
+								onClick={() => {
+									setIsWelcomeScreenSelected(true);
+									setSelectedQuestionId(null);
+									setSelectedFinalId(null);
+								}}
+							>
+								<div className='flex items-center justify-between'>
+									<div className='flex items-center space-x-2 flex-1 min-w-0'>
+										<PlayCircle className='h-4 w-4 text-orange-600' />
+										<span className='text-sm font-medium text-gray-900 truncate'>
+											Tela de Início
+										</span>
+									</div>
+									<div className='flex items-center space-x-1'>
+										<button
+											onClick={(e) => {
+												e.stopPropagation();
+												deleteWelcomeScreen();
+											}}
+											className='p-1 text-red-400 hover:text-red-600'
+										>
+											<Trash2 className='h-3 w-3' />
+										</button>
+									</div>
+								</div>
+							</div>
+						</div>
+					)}
 					{form.questions.length === 0 ? (
 						<div className='text-center py-8 text-gray-500'>
 							<p className='text-sm'>Nenhuma pergunta ainda.</p>
@@ -249,60 +546,230 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 					) : (
 						<div className='space-y-2'>
 							{form.questions.map((question, index) => (
-								<div
-									key={question.id}
-									className={`p-3 rounded-lg border transition-all cursor-pointer ${
-										selectedQuestionId === question.id && !selectedFinalId
-											? 'bg-blue-50 border-blue-200'
-											: 'bg-white border-gray-200 hover:border-gray-300'
-									}`}
-									onClick={() => {
-										setSelectedFinalId(null);
-										setSelectedQuestionId(question.id);
-									}}
-								>
-									<div className='flex items-center justify-between'>
-										<div className='flex items-center space-x-2 flex-1 min-w-0'>
-											{questionTypeIcons[question.type]}
-											<span className='text-sm font-medium text-gray-900 truncate'>
-												{question.title}
-											</span>
+								<div key={question.id}>
+									{/* Question Group or MultiQuestion */}
+									{question.type === 'question-group' || question.type === 'multiquestion' ? (
+										<div className='border border-gray-200 rounded-lg overflow-hidden'>
+											{/* Group Header */}
+											<div // prettier-ignore
+												className={`p-3 bg-gray-50 border-b border-gray-200 transition-all ${
+													selectedQuestionId === question.id &&
+													!selectedFinalId &&
+													!isWelcomeScreenSelected
+														? 'bg-blue-50 border-blue-200'
+														: 'hover:bg-gray-100'
+												}`}
+											>
+												<div className='flex items-center justify-between'>
+													<div
+														className='flex items-center space-x-2 flex-1 min-w-0 cursor-pointer'
+														onClick={() => {
+															setIsWelcomeScreenSelected(false);
+															setSelectedFinalId(null);
+															setSelectedQuestionId(question.id);
+															setSelectedGroupQuestionId(null);
+														}}
+													>
+														{questionTypeIcons[question.type]}
+														<span className='text-sm font-medium text-gray-900 truncate'>
+															{question.title}
+														</span>
+													</div>
+													<div className='flex items-center space-x-1'>
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																toggleGroupExpansion(question.id);
+															}}
+															className='p-1 text-gray-400 hover:text-gray-600 transition-colors'
+														>
+															{expandedGroups.has(question.id) ? (
+																<ChevronUp className='h-4 w-4' />
+															) : (
+																<ChevronDown className='h-4 w-4' />
+															)}
+														</button>
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																moveQuestion(question.id, 'up');
+															}}
+															disabled={index === 0}
+															className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+														>
+															<ArrowUp className='h-3 w-3' />
+														</button>
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																moveQuestion(question.id, 'down');
+															}}
+															disabled={index === form.questions.length - 1}
+															className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+														>
+															<ArrowDown className='h-3 w-3' />
+														</button>
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																deleteQuestion(question.id);
+															}}
+															className='p-1 text-red-400 hover:text-red-600'
+														>
+															<Trash2 className='h-3 w-3' />
+														</button>
+													</div>
+												</div>
+												<div className='mt-1 text-xs text-gray-500'>
+													{getQuestionTypeLabel(question.type)}
+												</div>
+											</div>
+
+											{/* Group Questions */}
+											{expandedGroups.has(question.id) && (
+												<div className='bg-white'>
+													{(question.questions || []).map((groupQuestion, groupIndex) => (
+														<div
+															key={groupQuestion.id}
+															className={`p-2 pl-6 border-l-2 border-gray-100 hover:border-gray-200 transition-all cursor-pointer ${
+																// prettier-ignore
+																selectedQuestionId === question.id &&
+																selectedGroupQuestionId === groupQuestion.id &&
+																!selectedFinalId &&
+																!isWelcomeScreenSelected
+																	? 'border-blue-200 bg-blue-50'
+																	: 'hover:bg-gray-50'
+															}`}
+															onClick={() => {
+																setIsWelcomeScreenSelected(false);
+																setSelectedFinalId(null);
+																setSelectedQuestionId(question.id);
+																setSelectedGroupQuestionId(groupQuestion.id);
+															}}
+														>
+															<div className='flex items-center justify-between'>
+																<div className='flex items-center space-x-2 flex-1 min-w-0'>
+																	{questionTypeIcons[groupQuestion.type]}
+																	<span className='text-xs font-medium text-gray-700 truncate'>
+																		{groupQuestion.title || 'Pergunta sem título'}
+																	</span>
+																</div>
+																<div className='flex items-center space-x-1'>
+																	<button
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			moveQuestionInGroup(question.id, groupQuestion.id, 'up');
+																		}}
+																		disabled={groupIndex === 0}
+																		className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+																	>
+																		<ArrowUp className='h-3 w-3' />
+																	</button>
+																	<button
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			moveQuestionInGroup(question.id, groupQuestion.id, 'down');
+																		}}
+																		disabled={groupIndex === (question.questions || []).length - 1}
+																		className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+																	>
+																		<ArrowDown className='h-3 w-3' />
+																	</button>
+																	<button
+																		onClick={(e) => {
+																			e.stopPropagation();
+																			deleteQuestionFromGroup(question.id, groupQuestion.id);
+																		}}
+																		className='p-1 text-red-400 hover:text-red-600'
+																	>
+																		<Trash2 className='h-3 w-3' />
+																	</button>
+																</div>
+															</div>
+															<div className='mt-1 text-xs text-gray-500'>
+																{getQuestionTypeLabel(groupQuestion.type)}
+															</div>
+														</div>
+													))}
+
+													{/* Add Question Button */}
+													<div className='p-2 pl-6 border-l-2 border-gray-100'>
+														<button
+															onClick={(e) => {
+																e.stopPropagation();
+																addQuestionToGroup(question.id);
+																setSelectedGroupQuestionId(null);
+															}}
+															className='flex items-center space-x-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded transition-colors'
+														>
+															<Plus className='h-3 w-3' />
+															<span>Adicionar pergunta</span>
+														</button>
+													</div>
+												</div>
+											)}
 										</div>
-										<div className='flex items-center space-x-1'>
-											<button
-												onClick={(e) => {
-													e.stopPropagation();
-													moveQuestion(question.id, 'up');
-												}}
-												disabled={index === 0}
-												className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
-											>
-												<ArrowUp className='h-3 w-3' />
-											</button>
-											<button
-												onClick={(e) => {
-													e.stopPropagation();
-													moveQuestion(question.id, 'down');
-												}}
-												disabled={index === form.questions.length - 1}
-												className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
-											>
-												<ArrowDown className='h-3 w-3' />
-											</button>
-											<button
-												onClick={(e) => {
-													e.stopPropagation();
-													deleteQuestion(question.id);
-												}}
-												className='p-1 text-red-400 hover:text-red-600'
-											>
-												<Trash2 className='h-3 w-3' />
-											</button>
+									) : (
+										/* Regular Question */
+										<div
+											className={`p-3 rounded-lg border transition-all cursor-pointer ${
+												// prettier-ignore
+												selectedQuestionId === question.id &&
+												!selectedFinalId &&
+												!isWelcomeScreenSelected
+													? 'bg-blue-50 border-blue-200'
+													: 'bg-white border-gray-200 hover:border-gray-300'
+											}`}
+											onClick={() => {
+												setIsWelcomeScreenSelected(false);
+												setSelectedFinalId(null);
+												setSelectedQuestionId(question.id);
+											}}
+										>
+											<div className='flex items-center justify-between'>
+												<div className='flex items-center space-x-2 flex-1 min-w-0'>
+													{questionTypeIcons[question.type]}
+													<span className='text-sm font-medium text-gray-900 truncate'>
+														{question.title}
+													</span>
+												</div>
+												<div className='flex items-center space-x-1'>
+													<button
+														onClick={(e) => {
+															e.stopPropagation();
+															moveQuestion(question.id, 'up');
+														}}
+														disabled={index === 0}
+														className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+													>
+														<ArrowUp className='h-3 w-3' />
+													</button>
+													<button
+														onClick={(e) => {
+															e.stopPropagation();
+															moveQuestion(question.id, 'down');
+														}}
+														disabled={index === form.questions.length - 1}
+														className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+													>
+														<ArrowDown className='h-3 w-3' />
+													</button>
+													<button
+														onClick={(e) => {
+															e.stopPropagation();
+															deleteQuestion(question.id);
+														}}
+														className='p-1 text-red-400 hover:text-red-600'
+													>
+														<Trash2 className='h-3 w-3' />
+													</button>
+												</div>
+											</div>
+											<div className='mt-1 text-xs text-gray-500'>
+												{getQuestionTypeLabel(question.type)}
+											</div>
 										</div>
-									</div>
-									<div className='mt-1 text-xs text-gray-500'>
-										{getQuestionTypeLabel(question.type)}
-									</div>
+									)}
 								</div>
 							))}
 						</div>
@@ -330,11 +797,15 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 									<div
 										key={f.id}
 										className={`p-3 rounded-lg border transition-all cursor-pointer ${
-											selectedFinalId === f.id && !selectedQuestionId
+											// prettier-ignore
+											selectedFinalId === f.id &&
+											!selectedQuestionId &&
+											!isWelcomeScreenSelected
 												? 'bg-blue-50 border-blue-200'
 												: 'bg-white border-gray-200 hover:border-gray-300'
 										}`}
 										onClick={() => {
+											setIsWelcomeScreenSelected(false);
 											setSelectedQuestionId(null);
 											setSelectedFinalId(f.id);
 										}}
@@ -392,7 +863,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 				<div className='bg-white border-b border-gray-200 px-6 py-4'>
 					<div className='flex items-center justify-between'>
 						<div className='flex items-center space-x-4'>
-							<button onClick={onBack} className='text-gray-400 hover:text-gray-600'>
+							<button onClick={onBack} className='text-sm text-gray-400 hover:text-gray-600'>
 								← Voltar
 							</button>
 							<h1 className='text-xl font-semibold text-gray-900'>{form.title}</h1>
@@ -405,10 +876,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 								Visualizar
 							</button>
 							<button
-								onClick={onSave}
-								className='px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors'
+								onClick={handleSave}
+								disabled={isSaving}
+								className='px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
 							>
-								Salvar
+								{isSaving ? 'Salvando...' : 'Salvar'}
 							</button>
 						</div>
 					</div>
@@ -417,7 +889,365 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 				{/* Editor Content */}
 				<div className='flex-1'>
 					{activeTab === 'content' ? (
-						selectedQuestion ? (
+						isWelcomeScreenSelected && welcomeScreen ? (
+							<div className='max-w-2xl mx-auto p-6'>
+								<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
+									<div className='space-y-6'>
+										<div>
+											<label className='block text-sm font-medium text-gray-700 mb-2'>
+												Título da tela de início
+											</label>
+											<input
+												type='text'
+												value={welcomeScreen.title}
+												onChange={(e) => updateWelcomeScreen({ title: e.target.value })}
+												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												placeholder='Título da tela de início'
+											/>
+										</div>
+
+										<div>
+											<label className='block text-sm font-medium text-gray-700 mb-2'>
+												Descrição
+											</label>
+											<textarea
+												value={welcomeScreen.description || ''}
+												onChange={(e) => updateWelcomeScreen({ description: e.target.value })}
+												rows={3}
+												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												placeholder='Mensagem de boas-vindas...'
+											/>
+										</div>
+
+										<div className='grid grid-cols-1 md:grid-cols-2 gap-4 items-end'>
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Texto do botão
+												</label>
+												<input
+													type='text'
+													value={welcomeScreen.buttonText || ''}
+													onChange={(e) => updateWelcomeScreen({ buttonText: e.target.value })}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md'
+													placeholder='Ex: Começar'
+												/>
+											</div>
+											<div className='flex items-center justify-between'>
+												<span className='text-sm text-gray-700 mr-2'>Mostrar botão</span>
+												<button
+													onClick={() =>
+														updateWelcomeScreen({ showButton: !welcomeScreen.showButton })
+													}
+													className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+														welcomeScreen.showButton ? 'bg-blue-600' : 'bg-gray-200'
+													}`}
+													type='button'
+													aria-pressed={!!welcomeScreen.showButton}
+												>
+													<span
+														className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+															welcomeScreen.showButton ? 'translate-x-5' : 'translate-x-1'
+														}`}
+													/>
+												</button>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						) : selectedQuestion ? (
+							selectedGroupQuestion ? (
+								/* Group Question Editor */
+								<div className='max-w-2xl mx-auto p-6'>
+									<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
+										<div className='mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200'>
+											<div className='flex items-center space-x-2 mb-2'>
+												{selectedQuestion.type === 'multiquestion' ? (
+													<Layers className='h-4 w-4 text-gray-600' />
+												) : (
+													<Folder className='h-4 w-4 text-gray-600' />
+												)}
+												<span className='text-sm font-medium text-gray-700'>
+													{selectedQuestion.type === 'multiquestion'
+														? 'Múltiplas Perguntas'
+														: 'Grupo'}
+													: {selectedQuestion.title}
+												</span>
+											</div>
+											<div className='text-xs text-gray-500'>Editando pergunta dentro do grupo</div>
+										</div>
+
+										<div className='space-y-6'>
+											{/* Question Title */}
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Pergunta *
+												</label>
+												<input
+													type='text'
+													value={selectedGroupQuestion.title}
+													onChange={(e) =>
+														updateQuestionInGroup(selectedQuestion.id, selectedGroupQuestion.id, {
+															title: e.target.value,
+														})
+													}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													placeholder='Digite sua pergunta...'
+												/>
+											</div>
+
+											{/* Question Description */}
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Descrição (opcional)
+												</label>
+												<textarea
+													value={selectedGroupQuestion.description || ''}
+													onChange={(e) =>
+														updateQuestionInGroup(selectedQuestion.id, selectedGroupQuestion.id, {
+															description: e.target.value,
+														})
+													}
+													rows={2}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													placeholder='Adicione uma descrição...'
+												/>
+											</div>
+
+											{/* Question Type Selector */}
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Tipo de pergunta
+												</label>
+												<select
+													value={selectedGroupQuestion.type}
+													onChange={(e) =>
+														updateQuestionInGroup(selectedQuestion.id, selectedGroupQuestion.id, {
+															type: e.target.value as QuestionType,
+														})
+													}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												>
+													<option value='short-text'>Texto Curto</option>
+													<option value='long-text'>Texto Longo</option>
+													<option value='multiple-choice'>Múltipla Escolha</option>
+													<option value='email'>E-mail</option>
+													<option value='number'>Número</option>
+													<option value='date'>Data</option>
+													<option value='rating'>Avaliação</option>
+												</select>
+											</div>
+
+											{/* Multiple Choice Options */}
+											{selectedGroupQuestion.type === 'multiple-choice' && (
+												<div>
+													<label className='block text-sm font-medium text-gray-700 mb-2'>
+														Opções
+													</label>
+													<div className='space-y-2'>
+														{(selectedGroupQuestion.options || []).map((option, index) => (
+															<div key={index} className='flex items-center space-x-2'>
+																<input
+																	type='text'
+																	value={option}
+																	onChange={(e) => {
+																		const newOptions = [...(selectedGroupQuestion.options || [])];
+																		newOptions[index] = e.target.value;
+																		updateQuestionInGroup(
+																			selectedQuestion.id,
+																			selectedGroupQuestion.id,
+																			{ options: newOptions }
+																		);
+																	}}
+																	className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+																	placeholder={`Opção ${index + 1}`}
+																/>
+																<button
+																	onClick={() => {
+																		const newOptions = (selectedGroupQuestion.options || []).filter(
+																			(_, i) => i !== index
+																		);
+																		updateQuestionInGroup(
+																			selectedQuestion.id,
+																			selectedGroupQuestion.id,
+																			{ options: newOptions }
+																		);
+																	}}
+																	className='p-2 text-red-500 hover:text-red-700'
+																>
+																	<Trash2 className='h-4 w-4' />
+																</button>
+															</div>
+														))}
+														<button
+															onClick={() => {
+																const newOptions = [...(selectedGroupQuestion.options || []), ''];
+																updateQuestionInGroup(
+																	selectedQuestion.id,
+																	selectedGroupQuestion.id,
+																	{ options: newOptions }
+																);
+															}}
+															className='text-sm text-blue-600 hover:text-blue-700'
+														>
+															+ Adicionar opção
+														</button>
+													</div>
+												</div>
+											)}
+
+											{/* Required Toggle */}
+											<div className='flex items-center'>
+												<input
+													type='checkbox'
+													id='required'
+													checked={selectedGroupQuestion.required}
+													onChange={(e) =>
+														updateQuestionInGroup(selectedQuestion.id, selectedGroupQuestion.id, {
+															required: e.target.checked,
+														})
+													}
+													className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+												/>
+												<label htmlFor='required' className='ml-2 text-sm text-gray-700'>
+													Resposta obrigatória
+												</label>
+											</div>
+										</div>
+									</div>
+								</div>
+							) : (
+								/* Group Editor */
+								<div className='max-w-2xl mx-auto p-6'>
+									<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
+										<div className='space-y-6'>
+											{/* Group Title */}
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Título do Grupo *
+												</label>
+												<input
+													type='text'
+													value={selectedQuestion.title}
+													onChange={(e) =>
+														updateQuestion(selectedQuestion.id, {
+															title: e.target.value,
+														})
+													}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													placeholder='Digite o título do grupo...'
+												/>
+											</div>
+
+											{/* Group Description */}
+											<div>
+												<label className='block text-sm font-medium text-gray-700 mb-2'>
+													Descrição do Grupo (opcional)
+												</label>
+												<textarea
+													value={selectedQuestion.description || ''}
+													onChange={(e) =>
+														updateQuestion(selectedQuestion.id, {
+															description: e.target.value,
+														})
+													}
+													rows={2}
+													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													placeholder='Adicione uma descrição para o grupo...'
+												/>
+											</div>
+
+											{/* Group Questions Management */}
+											<div className='border-t pt-6'>
+												<div className='flex items-center justify-between mb-4'>
+													<h3 className='text-lg font-medium text-gray-900'>Perguntas do Grupo</h3>
+													<button
+														onClick={() => {
+															addQuestionToGroup(selectedQuestion.id);
+															setSelectedGroupQuestionId(null);
+														}}
+														className='px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors'
+													>
+														<Plus className='h-4 w-4 mr-1 inline' />
+														Adicionar Pergunta
+													</button>
+												</div>
+
+												{(selectedQuestion.questions || []).length === 0 ? (
+													<div className='text-center py-8 text-gray-500 bg-gray-50 rounded-lg'>
+														<p className='text-sm'>Nenhuma pergunta no grupo ainda.</p>
+														<p className='text-sm'>Clique em "Adicionar Pergunta" para começar.</p>
+													</div>
+												) : (
+													<div className='space-y-3'>
+														{(selectedQuestion.questions || []).map((question, index) => (
+															<div
+																key={question.id}
+																className={`p-4 rounded-lg border transition-all cursor-pointer ${
+																	selectedGroupQuestionId === question.id
+																		? 'bg-blue-50 border-blue-200'
+																		: 'bg-gray-50 border-gray-200 hover:border-gray-300'
+																}`}
+																onClick={() => setSelectedGroupQuestionId(question.id)}
+															>
+																<div className='flex items-center justify-between'>
+																	<div className='flex items-center space-x-2 flex-1 min-w-0'>
+																		{questionTypeIcons[question.type]}
+																		<span className='text-sm font-medium text-gray-900 truncate'>
+																			{question.title || 'Pergunta sem título'}
+																		</span>
+																	</div>
+																	<div className='flex items-center space-x-1'>
+																		<button
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				moveQuestionInGroup(selectedQuestion.id, question.id, 'up');
+																			}}
+																			disabled={index === 0}
+																			className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+																		>
+																			<ArrowUp className='h-3 w-3' />
+																		</button>
+																		<button
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				moveQuestionInGroup(
+																					selectedQuestion.id,
+																					question.id,
+																					'down'
+																				);
+																			}}
+																			disabled={
+																				index === (selectedQuestion.questions || []).length - 1
+																			}
+																			className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+																		>
+																			<ArrowDown className='h-3 w-3' />
+																		</button>
+																		<button
+																			onClick={(e) => {
+																				e.stopPropagation();
+																				deleteQuestionFromGroup(selectedQuestion.id, question.id);
+																			}}
+																			className='p-1 text-red-400 hover:text-red-600'
+																		>
+																			<Trash2 className='h-3 w-3' />
+																		</button>
+																	</div>
+																</div>
+																<div className='mt-1 text-xs text-gray-500'>
+																	{getQuestionTypeLabel(question.type)}
+																</div>
+															</div>
+														))}
+													</div>
+												)}
+											</div>
+										</div>
+									</div>
+								</div>
+							)
+						) : selectedQuestion ? (
 							<div className='max-w-2xl mx-auto p-6'>
 								<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
 									<div className='space-y-6'>
@@ -478,6 +1308,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												<option value='number'>Número</option>
 												<option value='date'>Data</option>
 												<option value='rating'>Avaliação</option>
+												<option value='question-group'>Grupo de Perguntas</option>
+												<option value='multiquestion'>Múltiplas Perguntas</option>
 											</select>
 										</div>
 
@@ -527,23 +1359,230 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 											</div>
 										)}
 
-										{/* Required Toggle */}
-										<div className='flex items-center'>
-											<input
-												type='checkbox'
-												id='required'
-												checked={selectedQuestion.required}
-												onChange={(e) =>
-													updateQuestion(selectedQuestion.id, {
-														required: e.target.checked,
-													})
-												}
-												className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-											/>
-											<label htmlFor='required' className='ml-2 text-sm text-gray-700'>
-												Resposta obrigatória
-											</label>
-										</div>
+										{/* Question Group or MultiQuestion Management */}
+										{(selectedQuestion.type === 'question-group' ||
+											selectedQuestion.type === 'multiquestion') && (
+											<div className='space-y-4'>
+												<div className='border-t pt-4'>
+													<div className='flex items-center justify-between mb-4'>
+														<h3 className='text-lg font-medium text-gray-900'>
+															Perguntas do Grupo
+														</h3>
+														<button
+															onClick={() => addQuestionToGroup(selectedQuestion.id)}
+															className='px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 transition-colors'
+														>
+															<Plus className='h-4 w-4 mr-1 inline' />
+															Adicionar Pergunta
+														</button>
+													</div>
+
+													{(selectedQuestion.questions || []).length === 0 ? (
+														<div className='text-center py-8 text-gray-500 bg-gray-50 rounded-lg'>
+															<p className='text-sm'>Nenhuma pergunta no grupo ainda.</p>
+															<p className='text-sm'>
+																Clique em "Adicionar Pergunta" para começar.
+															</p>
+														</div>
+													) : (
+														<div className='space-y-3'>
+															{(selectedQuestion.questions || []).map((question, index) => (
+																<div
+																	key={question.id}
+																	className='p-4 bg-gray-50 rounded-lg border border-gray-200'
+																>
+																	<div className='flex items-center justify-between mb-2'>
+																		<div className='flex items-center space-x-2 flex-1 min-w-0'>
+																			{questionTypeIcons[question.type]}
+																			<span className='text-sm font-medium text-gray-900 truncate'>
+																				{question.title || 'Pergunta sem título'}
+																			</span>
+																		</div>
+																		<div className='flex items-center space-x-1'>
+																			<button
+																				onClick={() =>
+																					moveQuestionInGroup(
+																						selectedQuestion.id,
+																						question.id,
+																						'up'
+																					)
+																				}
+																				disabled={index === 0}
+																				className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+																			>
+																				<ArrowUp className='h-3 w-3' />
+																			</button>
+																			<button
+																				onClick={() =>
+																					moveQuestionInGroup(
+																						selectedQuestion.id,
+																						question.id,
+																						'down'
+																					)
+																				}
+																				disabled={
+																					index === (selectedQuestion.questions || []).length - 1
+																				}
+																				className='p-1 text-gray-400 hover:text-gray-600 disabled:opacity-50'
+																			>
+																				<ArrowDown className='h-3 w-3' />
+																			</button>
+																			<button
+																				onClick={() =>
+																					deleteQuestionFromGroup(selectedQuestion.id, question.id)
+																				}
+																				className='p-1 text-red-400 hover:text-red-600'
+																			>
+																				<Trash2 className='h-3 w-3' />
+																			</button>
+																		</div>
+																	</div>
+																	<div className='text-xs text-gray-500 mb-2'>
+																		{getQuestionTypeLabel(question.type)}
+																	</div>
+																	<div className='space-y-2'>
+																		<input
+																			type='text'
+																			value={question.title}
+																			onChange={(e) =>
+																				updateQuestionInGroup(selectedQuestion.id, question.id, {
+																					title: e.target.value,
+																				})
+																			}
+																			className='w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500'
+																			placeholder='Título da pergunta...'
+																		/>
+																		<textarea
+																			value={question.description || ''}
+																			onChange={(e) =>
+																				updateQuestionInGroup(selectedQuestion.id, question.id, {
+																					description: e.target.value,
+																				})
+																			}
+																			rows={1}
+																			className='w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500'
+																			placeholder='Descrição (opcional)...'
+																		/>
+																		<select
+																			value={question.type}
+																			onChange={(e) =>
+																				updateQuestionInGroup(selectedQuestion.id, question.id, {
+																					type: e.target.value as QuestionType,
+																				})
+																			}
+																			className='w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500'
+																		>
+																			<option value='short-text'>Texto Curto</option>
+																			<option value='long-text'>Texto Longo</option>
+																			<option value='multiple-choice'>Múltipla Escolha</option>
+																			<option value='email'>E-mail</option>
+																			<option value='number'>Número</option>
+																			<option value='date'>Data</option>
+																			<option value='rating'>Avaliação</option>
+																		</select>
+																		{question.type === 'multiple-choice' && (
+																			<div className='space-y-1'>
+																				{(question.options || []).map((option, optIndex) => (
+																					<div
+																						key={optIndex}
+																						className='flex items-center space-x-2'
+																					>
+																						<input
+																							type='text'
+																							value={option}
+																							onChange={(e) => {
+																								const newOptions = [...(question.options || [])];
+																								newOptions[optIndex] = e.target.value;
+																								updateQuestionInGroup(
+																									selectedQuestion.id,
+																									question.id,
+																									{
+																										options: newOptions,
+																									}
+																								);
+																							}}
+																							className='flex-1 px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500'
+																							placeholder={`Opção ${optIndex + 1}`}
+																						/>
+																						<button
+																							onClick={() => {
+																								const newOptions = (question.options || []).filter(
+																									(_, i) => i !== optIndex
+																								);
+																								updateQuestionInGroup(
+																									selectedQuestion.id,
+																									question.id,
+																									{
+																										options: newOptions,
+																									}
+																								);
+																							}}
+																							className='p-1 text-red-500 hover:text-red-700'
+																						>
+																							<Trash2 className='h-3 w-3' />
+																						</button>
+																					</div>
+																				))}
+																				<button
+																					onClick={() => {
+																						const newOptions = [...(question.options || []), ''];
+																						updateQuestionInGroup(
+																							selectedQuestion.id,
+																							question.id,
+																							{
+																								options: newOptions,
+																							}
+																						);
+																					}}
+																					className='text-xs text-blue-600 hover:text-blue-700'
+																				>
+																					+ Adicionar opção
+																				</button>
+																			</div>
+																		)}
+																		<div className='flex items-center'>
+																			<input
+																				type='checkbox'
+																				checked={question.required}
+																				onChange={(e) =>
+																					updateQuestionInGroup(selectedQuestion.id, question.id, {
+																						required: e.target.checked,
+																					})
+																				}
+																				className='h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+																			/>
+																			<label className='ml-2 text-xs text-gray-700'>
+																				Obrigatória
+																			</label>
+																		</div>
+																	</div>
+																</div>
+															))}
+														</div>
+													)}
+												</div>
+											</div>
+										)}
+
+										{/* Required Toggle - only show for non-group questions */}
+										{selectedQuestion.type !== 'question-group' && (
+											<div className='flex items-center'>
+												<input
+													type='checkbox'
+													id='required'
+													checked={selectedQuestion.required}
+													onChange={(e) =>
+														updateQuestion(selectedQuestion.id, {
+															required: e.target.checked,
+														})
+													}
+													className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
+												/>
+												<label htmlFor='required' className='ml-2 text-sm text-gray-700'>
+													Resposta obrigatória
+												</label>
+											</div>
+										)}
 									</div>
 								</div>
 							</div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Star, PlayCircle } from 'lucide-react';
 import { Form, Answer, Response, WorkflowRule, FinalScreen } from '../types';
 import { generateId, validateEmail, validateRequired } from '../utils/helpers';
 
@@ -10,15 +10,53 @@ interface FormViewProps {
 }
 
 export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) => {
-	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(form.welcomeScreen ? -1 : 0); // -1 para tela de início
+	const [currentGroupQuestionIndex, setCurrentGroupQuestionIndex] = useState(0);
 	const [answers, setAnswers] = useState<Record<string, any>>({});
 	const [isCompleted, setIsCompleted] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [showFinal, setShowFinal] = useState<FinalScreen | null>(null);
 
+	const hasWelcomeScreen = !!form.welcomeScreen;
+	const isShowingWelcome = hasWelcomeScreen && currentQuestionIndex === -1;
+
 	const currentQuestion = form.questions[currentQuestionIndex];
 	const isLastQuestion = currentQuestionIndex === form.questions.length - 1;
-	const progress = ((currentQuestionIndex + 1) / form.questions.length) * 100;
+
+	// Check if current question is a group or multiquestion
+	const isCurrentQuestionGroup = currentQuestion?.type === 'question-group';
+	const isCurrentQuestionMulti = currentQuestion?.type === 'multiquestion';
+	const groupQuestions =
+		isCurrentQuestionGroup || isCurrentQuestionMulti ? currentQuestion.questions || [] : [];
+	const currentGroupQuestion =
+		isCurrentQuestionGroup || isCurrentQuestionMulti
+			? groupQuestions[currentGroupQuestionIndex]
+			: null;
+	const isLastGroupQuestion =
+		isCurrentQuestionGroup || isCurrentQuestionMulti
+			? currentGroupQuestionIndex === groupQuestions.length - 1
+			: true;
+
+	// Calculate progress - for groups and multiquestion, we need to count all questions
+	const totalQuestions = form.questions.reduce((total, q) => {
+		if (q.type === 'question-group' || q.type === 'multiquestion') {
+			return total + (q.questions?.length || 0);
+		}
+		return total + 1;
+	}, 0);
+
+	const currentProgress =
+		currentQuestionIndex < 0
+			? 0
+			: form.questions.slice(0, currentQuestionIndex).reduce((total, q) => {
+					if (q.type === 'question-group' || q.type === 'multiquestion') {
+						return total + (q.questions?.length || 0);
+					}
+					return total + 1;
+			  }, 0) +
+			  (isCurrentQuestionGroup || isCurrentQuestionMulti ? currentGroupQuestionIndex + 1 : 1);
+
+	const progress = (currentProgress / totalQuestions) * 100;
 
 	// Styles (computed early so they are available for all branches)
 	const pageStyle: React.CSSProperties = {
@@ -123,30 +161,75 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 	const validateCurrentAnswer = () => {
 		if (!currentQuestion) return true;
 
-		const answer = answers[currentQuestion.id];
+		// For multiquestion, validate all questions in the group
+		if (isCurrentQuestionMulti) {
+			const questions = currentQuestion.questions || [];
+			let hasErrors = false;
+			const newErrors = { ...errors };
+
+			questions.forEach((question) => {
+				if (question.required) {
+					const answer = answers[question.id];
+					if (!answer || (typeof answer === 'string' && answer.trim() === '')) {
+						newErrors[question.id] = 'Esta pergunta é obrigatória';
+						hasErrors = true;
+					} else {
+						delete newErrors[question.id];
+					}
+				}
+			});
+
+			setErrors(newErrors);
+			return !hasErrors;
+		}
+
+		// For question groups, validate the current group question
+		const questionToValidate = isCurrentQuestionGroup ? currentGroupQuestion : currentQuestion;
+		if (!questionToValidate) return true;
+
+		const answer = answers[questionToValidate.id];
 		const newErrors = { ...errors };
 
-		if (currentQuestion.required && !validateRequired(answer)) {
-			newErrors[currentQuestion.id] = 'Este campo é obrigatório';
-		} else if (currentQuestion.type === 'email' && answer && !validateEmail(answer)) {
-			newErrors[currentQuestion.id] = 'E-mail inválido';
+		if (questionToValidate.required && !validateRequired(answer)) {
+			newErrors[questionToValidate.id] = 'Este campo é obrigatório';
+		} else if (questionToValidate.type === 'email' && answer && !validateEmail(answer)) {
+			newErrors[questionToValidate.id] = 'E-mail inválido';
 		} else {
-			delete newErrors[currentQuestion.id];
+			delete newErrors[questionToValidate.id];
 		}
 
 		setErrors(newErrors);
-		return !newErrors[currentQuestion.id];
+		return !newErrors[questionToValidate.id];
 	};
 
 	const collectAllAnswers = (): Answer[] => {
 		// Collect answers for all questions that have been answered
 		// This ensures we capture answers even for questions that were skipped by workflow
-		return form.questions
-			.filter((question) => answers[question.id] !== undefined && answers[question.id] !== '')
-			.map((question) => ({
-				questionId: question.id,
-				value: answers[question.id] || '',
-			}));
+		const allAnswers: Answer[] = [];
+
+		form.questions.forEach((question) => {
+			if (question.type === 'question-group' || question.type === 'multiquestion') {
+				// For groups and multiquestion, collect answers from all questions in the group
+				(question.questions || []).forEach((groupQuestion) => {
+					if (answers[groupQuestion.id] !== undefined && answers[groupQuestion.id] !== '') {
+						allAnswers.push({
+							questionId: groupQuestion.id,
+							value: answers[groupQuestion.id] || '',
+						});
+					}
+				});
+			} else {
+				// For regular questions
+				if (answers[question.id] !== undefined && answers[question.id] !== '') {
+					allAnswers.push({
+						questionId: question.id,
+						value: answers[question.id] || '',
+					});
+				}
+			}
+		});
+
+		return allAnswers;
 	};
 
 	const submitForm = () => {
@@ -162,7 +245,55 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 	};
 
 	const handleNext = () => {
+		if (isShowingWelcome) {
+			setCurrentQuestionIndex(0);
+			setCurrentGroupQuestionIndex(0);
+			return;
+		}
+
 		if (!validateCurrentAnswer()) return;
+
+		// If we're in a question group, handle group navigation
+		if (isCurrentQuestionGroup) {
+			if (isLastGroupQuestion) {
+				// Move to next main question
+				setCurrentGroupQuestionIndex(0);
+				if (isLastQuestion) {
+					// If there is a final screen, show it instead of immediate submit
+					const firstFinal = (form.finals || [])[0] || null;
+					if (firstFinal) {
+						setShowFinal(firstFinal);
+						return;
+					}
+					// Submit form
+					submitForm();
+				} else {
+					setCurrentQuestionIndex((prev) => prev + 1);
+				}
+			} else {
+				// Move to next question in group
+				setCurrentGroupQuestionIndex((prev) => prev + 1);
+			}
+			return;
+		}
+
+		// If we're in a multiquestion, always move to next main question
+		if (isCurrentQuestionMulti) {
+			setCurrentGroupQuestionIndex(0);
+			if (isLastQuestion) {
+				// If there is a final screen, show it instead of immediate submit
+				const firstFinal = (form.finals || [])[0] || null;
+				if (firstFinal) {
+					setShowFinal(firstFinal);
+					return;
+				}
+				// Submit form
+				submitForm();
+			} else {
+				setCurrentQuestionIndex((prev) => prev + 1);
+			}
+			return;
+		}
 
 		// Evaluate workflow to determine next step
 		const nextByWorkflow = computeNextIndexFromWorkflow();
@@ -199,6 +330,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 				// Fall through to normal flow
 			} else {
 				setCurrentQuestionIndex(nextByWorkflow);
+				setCurrentGroupQuestionIndex(0);
 				return;
 			}
 		}
@@ -214,44 +346,271 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			submitForm();
 		} else {
 			setCurrentQuestionIndex((prev) => prev + 1);
+			setCurrentGroupQuestionIndex(0);
 		}
 	};
 
 	const handlePrevious = () => {
-		if (currentQuestionIndex > 0) {
-			setCurrentQuestionIndex((prev) => prev - 1);
+		if (currentQuestionIndex === 0 && hasWelcomeScreen) {
+			setCurrentQuestionIndex(-1);
+			return;
+		}
+
+		// If we're in a question group, handle group navigation
+		if (isCurrentQuestionGroup || isCurrentQuestionMulti) {
+			if (currentGroupQuestionIndex > 0) {
+				// Move to previous question in group
+				setCurrentGroupQuestionIndex((prev) => prev - 1);
+			} else {
+				// Move to previous main question
+				if (currentQuestionIndex > 0) {
+					setCurrentQuestionIndex((prev) => prev - 1);
+					// Reset group question index for the new question
+					const prevQuestion = form.questions[currentQuestionIndex - 1];
+					if (prevQuestion?.type === 'question-group') {
+						setCurrentGroupQuestionIndex((prevQuestion.questions || []).length - 1);
+					} else {
+						setCurrentGroupQuestionIndex(0);
+					}
+				}
+			}
+		} else {
+			// Regular question navigation
+			if (currentQuestionIndex > 0) {
+				setCurrentQuestionIndex((prev) => prev - 1);
+				// Reset group question index
+				setCurrentGroupQuestionIndex(0);
+			}
 		}
 	};
 
-	const handleAnswerChange = (value: any) => {
+	const handleAnswerChange = (value: any, questionId?: string) => {
+		// For multiquestion, we need to pass the questionId explicitly
+		const targetQuestionId =
+			questionId ||
+			(isCurrentQuestionGroup || isCurrentQuestionMulti
+				? currentGroupQuestion?.id
+				: currentQuestion.id);
+		if (!targetQuestionId) return;
+
 		setAnswers((prev) => ({
 			...prev,
-			[currentQuestion.id]: value,
+			[targetQuestionId]: value,
 		}));
 
 		// Clear error when user starts typing
-		if (errors[currentQuestion.id]) {
+		if (errors[targetQuestionId]) {
 			setErrors((prev) => {
 				const newErrors = { ...prev };
-				delete newErrors[currentQuestion.id];
+				delete newErrors[targetQuestionId];
 				return newErrors;
 			});
+		}
+	};
+
+	const renderMultiQuestionInput = () => {
+		if (!currentQuestion || currentQuestion.type !== 'multiquestion') return null;
+
+		const questions = currentQuestion.questions || [];
+
+		return (
+			<div className='space-y-8'>
+				{questions.map((question, index) => {
+					const currentAnswer = answers[question.id] || '';
+					const hasError = !!errors[question.id];
+
+					return (
+						<div key={question.id} className='border-b border-gray-200 pb-6 last:border-b-0'>
+							<div className='mb-4'>
+								<h3 className='text-xl font-semibold mb-2 text-gray-900'>
+									{question.title}
+									{question.required && <span className='text-red-500 ml-1'>*</span>}
+								</h3>
+								{question.description && (
+									<p className='text-gray-600 mb-4'>{question.description}</p>
+								)}
+							</div>
+
+							<div className='space-y-4'>
+								{renderQuestionInputByType(question, currentAnswer, hasError, question.id)}
+							</div>
+
+							{hasError && <div className='mt-2 text-red-500 text-sm'>{errors[question.id]}</div>}
+						</div>
+					);
+				})}
+			</div>
+		);
+	};
+
+	const renderQuestionInputByType = (
+		question: Question,
+		currentAnswer: any,
+		hasError: boolean,
+		questionId?: string
+	) => {
+		switch (question.type) {
+			case 'short-text':
+				return (
+					<input
+						type='text'
+						value={currentAnswer}
+						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
+						className={`w-full px-4 py-3 text-lg border-0 border-b-2 bg-transparent focus:outline-none transition-colors ${
+							hasError
+								? 'border-red-500 focus:border-red-500'
+								: 'border-gray-300 focus:border-blue-500'
+						}`}
+						placeholder='Digite sua resposta...'
+						autoFocus={false}
+					/>
+				);
+
+			case 'long-text':
+				return (
+					<textarea
+						value={currentAnswer}
+						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
+						className={`w-full px-4 py-3 text-lg border-2 rounded-lg bg-transparent focus:outline-none transition-colors resize-none ${
+							hasError
+								? 'border-red-500 focus:border-red-500'
+								: 'border-gray-300 focus:border-blue-500'
+						}`}
+						placeholder='Digite sua resposta...'
+						rows={4}
+						autoFocus={false}
+					/>
+				);
+
+			case 'email':
+				return (
+					<input
+						type='email'
+						value={currentAnswer}
+						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
+						className={`w-full px-4 py-3 text-lg border-0 border-b-2 bg-transparent focus:outline-none transition-colors ${
+							hasError
+								? 'border-red-500 focus:border-red-500'
+								: 'border-gray-300 focus:border-blue-500'
+						}`}
+						placeholder='seu@email.com'
+						autoFocus={false}
+					/>
+				);
+
+			case 'number':
+				return (
+					<input
+						type='number'
+						value={currentAnswer}
+						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
+						className={`w-full px-4 py-3 text-lg border-0 border-b-2 bg-transparent focus:outline-none transition-colors ${
+							hasError
+								? 'border-red-500 focus:border-red-500'
+								: 'border-gray-300 focus:border-blue-500'
+						}`}
+						placeholder='0'
+						autoFocus={false}
+					/>
+				);
+
+			case 'date':
+				return (
+					<input
+						type='date'
+						value={currentAnswer}
+						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
+						className={`w-full px-4 py-3 text-lg border-2 rounded-lg bg-transparent focus:outline-none transition-colors ${
+							hasError
+								? 'border-red-500 focus:border-red-500'
+								: 'border-gray-300 focus:border-blue-500'
+						}`}
+						autoFocus={false}
+					/>
+				);
+
+			case 'multiple-choice':
+				return (
+					<div className='space-y-3'>
+						{(question.options || []).map((option, index) => (
+							<label
+								key={index}
+								className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
+									currentAnswer === option
+										? 'border-blue-500 bg-blue-50'
+										: 'border-gray-200 hover:border-gray-300'
+								}`}
+							>
+								<input
+									type='radio'
+									name={question.id}
+									value={option}
+									checked={currentAnswer === option}
+									onChange={(e) => handleAnswerChange(e.target.value, question.id)}
+									className='sr-only'
+								/>
+								<div
+									className={`w-4 h-4 rounded-full border-2 mr-3 ${
+										currentAnswer === option ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+									}`}
+								>
+									{currentAnswer === option && (
+										<div className='w-2 h-2 bg-white rounded-full m-0.5' />
+									)}
+								</div>
+								<span className='text-gray-700'>{option}</span>
+							</label>
+						))}
+					</div>
+				);
+
+			case 'rating':
+				return (
+					<div className='flex justify-center space-x-2'>
+						{[1, 2, 3, 4, 5].map((rating) => (
+							<button
+								key={rating}
+								type='button'
+								onClick={() => handleAnswerChange(rating.toString(), question.id)}
+								className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg font-semibold transition-colors ${
+									currentAnswer === rating.toString()
+										? 'border-blue-500 bg-blue-500 text-white'
+										: 'border-gray-300 hover:border-gray-400'
+								}`}
+							>
+								{rating}
+							</button>
+						))}
+					</div>
+				);
+
+			default:
+				return null;
 		}
 	};
 
 	const renderQuestionInput = () => {
 		if (!currentQuestion) return null;
 
-		const currentAnswer = answers[currentQuestion.id] || '';
-		const hasError = !!errors[currentQuestion.id];
+		// For multiquestion, render all questions at once
+		if (isCurrentQuestionMulti) {
+			return renderMultiQuestionInput();
+		}
 
-		switch (currentQuestion.type) {
+		// For question groups, render the current group question
+		const questionToRender = isCurrentQuestionGroup ? currentGroupQuestion : currentQuestion;
+		if (!questionToRender) return null;
+
+		const currentAnswer = answers[questionToRender.id] || '';
+		const hasError = !!errors[questionToRender.id];
+
+		switch (questionToRender.type) {
 			case 'short-text':
 				return (
 					<input
 						type='text'
 						value={currentAnswer}
-						onChange={(e) => handleAnswerChange(e.target.value)}
+						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 						className={`w-full px-4 py-3 text-lg border-0 border-b-2 bg-transparent focus:outline-none transition-colors ${
 							hasError
 								? 'border-red-500 focus:border-red-500'
@@ -266,7 +625,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 				return (
 					<textarea
 						value={currentAnswer}
-						onChange={(e) => handleAnswerChange(e.target.value)}
+						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 						rows={4}
 						className={`w-full px-4 py-3 text-lg border-2 rounded-lg bg-transparent focus:outline-none transition-colors resize-none ${
 							hasError
@@ -283,7 +642,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 					<input
 						type='email'
 						value={currentAnswer}
-						onChange={(e) => handleAnswerChange(e.target.value)}
+						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 						className={`w-full px-4 py-3 text-lg border-0 border-b-2 bg-transparent focus:outline-none transition-colors ${
 							hasError
 								? 'border-red-500 focus:border-red-500'
@@ -299,7 +658,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 					<input
 						type='number'
 						value={currentAnswer}
-						onChange={(e) => handleAnswerChange(e.target.value)}
+						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 						className={`w-full px-4 py-3 text-lg border-0 border-b-2 bg-transparent focus:outline-none transition-colors ${
 							hasError
 								? 'border-red-500 focus:border-red-500'
@@ -315,7 +674,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 					<input
 						type='date'
 						value={currentAnswer}
-						onChange={(e) => handleAnswerChange(e.target.value)}
+						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 						className={`w-full px-4 py-3 text-lg border-2 rounded-lg bg-transparent focus:outline-none transition-colors ${
 							hasError
 								? 'border-red-500 focus:border-red-500'
@@ -328,7 +687,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'multiple-choice':
 				return (
 					<div className='space-y-3'>
-						{(currentQuestion.options || []).map((option, index) => (
+						{(questionToRender.options || []).map((option, index) => (
 							<label
 								key={index}
 								className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
@@ -339,10 +698,10 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							>
 								<input
 									type='radio'
-									name={currentQuestion.id}
+									name={questionToRender.id}
 									value={option}
 									checked={currentAnswer === option}
-									onChange={(e) => handleAnswerChange(e.target.value)}
+									onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 									className='sr-only'
 								/>
 								<div
@@ -383,6 +742,63 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 				return null;
 		}
 	};
+
+	if (isShowingWelcome) {
+		return (
+			<div
+				className={`min-h-screen${
+					useCustomBg ? '' : ' bg-gradient-to-br from-blue-50 to-indigo-100'
+				}`}
+				style={pageStyle}
+			>
+				<div className='p-4'>
+					{onBack && (
+						<div className='fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-50'>
+							<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end'>
+								<button
+									onClick={onBack}
+									className='px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors'
+								>
+									Fechar visualização
+								</button>
+							</div>
+						</div>
+					)}
+
+					<div className='flex items-center justify-between max-w-4xl mx-auto'>
+						{!form.hideFormTitle && (
+							<h1 className='text-lg font-semibold' style={titleStyle}>
+								{form.title}
+							</h1>
+						)}
+						{!form.hideQuestionNumber && <div className='text-sm text-gray-500' />}
+					</div>
+				</div>
+				<div className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'>
+					<div className='w-full max-w-2xl'>
+						<div className='text-center mb-8'>
+							<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+								{form.welcomeScreen?.title}
+							</h2>
+							{form.welcomeScreen?.description && (
+								<p className='text-xl mb-8' style={questionTextStyle}>
+									{form.welcomeScreen.description}
+								</p>
+							)}
+						</div>
+						<div className='bg-white rounded-2xl shadow-lg p-8 mb-8 text-center'>
+							{form.welcomeScreen?.showButton !== false && (
+								<button onClick={handleNext} className={buttonClass} style={primaryButtonStyle}>
+									{form.welcomeScreen?.buttonText || 'Começar'}
+									<PlayCircle className='h-5 w-5 ml-2' />
+								</button>
+							)}
+						</div>
+					</div>
+				</div>
+			</div>
+		);
+	}
 
 	if (showFinal) {
 		const useCustomBgFinal = Boolean(
@@ -485,6 +901,19 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			}`}
 			style={pageStyle}
 		>
+			{onBack && (
+				<div className='fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-50'>
+					<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end'>
+						<button
+							onClick={onBack}
+							className='px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors'
+						>
+							Fechar visualização
+						</button>
+					</div>
+				</div>
+			)}
+
 			{/* Progress Bar */}
 			{!form.hideProgressBar && (
 				<div className='fixed top-0 left-0 w-full h-1 bg-gray-200 z-50'>
@@ -503,7 +932,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							{form.title}
 						</h1>
 					)}
-					{!form.hideQuestionNumber && (
+					{!form.hideQuestionNumber && currentQuestionIndex >= 0 && (
 						<div className='text-sm text-gray-500'>
 							{currentQuestionIndex + 1} de {form.questions.length}
 						</div>
@@ -516,14 +945,65 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 				<div className='w-full max-w-2xl'>
 					{currentQuestion && (
 						<div className='text-center mb-8'>
-							<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
-								{currentQuestion.title}
-								{currentQuestion.required && <span className='text-red-500 ml-1'>*</span>}
-							</h2>
-							{currentQuestion.description && (
-								<p className='text-xl mb-8' style={questionTextStyle}>
-									{currentQuestion.description}
-								</p>
+							{/* Group title and description */}
+							{isCurrentQuestionGroup && (
+								<div className='mb-6'>
+									<h1 className='text-2xl md:text-3xl font-bold mb-2' style={questionTextStyle}>
+										{currentQuestion.title}
+									</h1>
+									{currentQuestion.description && (
+										<p className='text-lg mb-4' style={questionTextStyle}>
+											{currentQuestion.description}
+										</p>
+									)}
+									<div className='text-sm text-gray-500 mb-4'>
+										Pergunta {currentGroupQuestionIndex + 1} de {groupQuestions.length}
+									</div>
+								</div>
+							)}
+
+							{/* Multiquestion title and description */}
+							{isCurrentQuestionMulti && (
+								<div className='mb-6'>
+									<h1 className='text-2xl md:text-3xl font-bold mb-2' style={questionTextStyle}>
+										{currentQuestion.title}
+									</h1>
+									{currentQuestion.description && (
+										<p className='text-lg mb-4' style={questionTextStyle}>
+											{currentQuestion.description}
+										</p>
+									)}
+								</div>
+							)}
+
+							{/* Current question title and description (only for question groups) */}
+							{isCurrentQuestionGroup && currentGroupQuestion && (
+								<div>
+									<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+										{currentGroupQuestion.title}
+										{currentGroupQuestion.required && <span className='text-red-500 ml-1'>*</span>}
+									</h2>
+									{currentGroupQuestion.description && (
+										<p className='text-xl mb-8' style={questionTextStyle}>
+											{currentGroupQuestion.description}
+										</p>
+									)}
+								</div>
+							)}
+
+							{/* Regular question (not in group) */}
+							{!isCurrentQuestionGroup && !isCurrentQuestionMulti && (
+								<div>
+									<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+										{currentQuestion.title}
+										{currentQuestion.required && <span className='text-red-500 ml-1'>*</span>}
+									</h2>
+									{currentQuestion.description && (
+										<p className='text-xl mb-8' style={questionTextStyle}>
+											{currentQuestion.description}
+										</p>
+									)}
+								</div>
 							)}
 						</div>
 					)}
@@ -531,18 +1011,29 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 					<div className='bg-white rounded-2xl shadow-lg p-8 mb-8'>
 						{renderQuestionInput()}
 
-						{errors[currentQuestion?.id] && (
-							<div className='mt-4 text-red-500 text-sm'>{errors[currentQuestion.id]}</div>
+						{/* Error display for question groups */}
+						{isCurrentQuestionGroup && currentGroupQuestion && errors[currentGroupQuestion.id] && (
+							<div className='mt-4 text-red-500 text-sm'>{errors[currentGroupQuestion.id]}</div>
 						)}
+
+						{/* Error display for regular questions */}
+						{!isCurrentQuestionGroup &&
+							!isCurrentQuestionMulti &&
+							currentQuestion &&
+							errors[currentQuestion.id] && (
+								<div className='mt-4 text-red-500 text-sm'>{errors[currentQuestion.id]}</div>
+							)}
 					</div>
 
 					{/* Navigation */}
 					<div className='flex items-center justify-between'>
 						<button
 							onClick={handlePrevious}
-							disabled={currentQuestionIndex === 0}
+							disabled={
+								currentQuestionIndex <= 0 && currentGroupQuestionIndex === 0 && !hasWelcomeScreen
+							}
 							className={`inline-flex items-center px-6 py-3 text-sm font-medium rounded-lg transition-colors ${
-								currentQuestionIndex === 0
+								currentQuestionIndex <= 0 && currentGroupQuestionIndex === 0 && !hasWelcomeScreen
 									? 'text-gray-400 cursor-not-allowed'
 									: 'text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-md'
 							}`}
@@ -552,8 +1043,19 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						</button>
 
 						<button onClick={handleNext} className={buttonClass} style={primaryButtonStyle}>
-							{isLastQuestion ? 'Enviar' : 'Próxima'}
-							{!isLastQuestion && <ChevronRight className='h-4 w-4 ml-2' />}
+							{isCurrentQuestionGroup || isCurrentQuestionMulti
+								? isLastGroupQuestion && isLastQuestion
+									? 'Enviar'
+									: 'Próxima'
+								: isLastQuestion
+								? 'Enviar'
+								: 'Próxima'}
+							{!(
+								((isCurrentQuestionGroup || isCurrentQuestionMulti) &&
+									isLastGroupQuestion &&
+									isLastQuestion) ||
+								(!isCurrentQuestionGroup && !isCurrentQuestionMulti && isLastQuestion)
+							) && <ChevronRight className='h-4 w-4 ml-2' />}
 						</button>
 					</div>
 				</div>

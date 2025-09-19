@@ -31,6 +31,21 @@ export const Results: React.FC<ResultsProps> = ({ form, responses, onBack }) => 
 
 	const formResponses = responses.filter((r) => r.formId === form.id);
 
+	const findQuestionById = (questionId: string) => {
+		// First, try to find in main questions
+		let question = form.questions.find((q) => q.id === questionId);
+		if (question) return question;
+
+		// If not found, search in nested questions (groups and multiquestion)
+		for (const mainQuestion of form.questions) {
+			if (mainQuestion.type === 'question-group' || mainQuestion.type === 'multiquestion') {
+				const nestedQuestion = mainQuestion.questions?.find((q) => q.id === questionId);
+				if (nestedQuestion) return nestedQuestion;
+			}
+		}
+		return null;
+	};
+
 	const getAnswersByQuestion = (questionId: string) => {
 		return formResponses
 			.map((response) => response.answers.find((answer) => answer.questionId === questionId))
@@ -92,8 +107,42 @@ export const Results: React.FC<ResultsProps> = ({ form, responses, onBack }) => 
 			{/* Questions Analysis */}
 			<div className='space-y-6'>
 				{form.questions.map((question, index) => {
-					const answers = getAnswersByQuestion(question.id);
+					if (question.type === 'question-group' || question.type === 'multiquestion') {
+						return (
+							<div key={question.id} className='bg-white rounded-lg border border-gray-200 p-6'>
+								<div className='mb-4'>
+									<h3 className='text-lg font-medium text-gray-900'>
+										{index + 1}. {question.title}
+									</h3>
+									<p className='text-sm text-gray-500 mt-1'>
+										{question.type === 'question-group'
+											? 'Grupo de Perguntas'
+											: 'Múltiplas Perguntas'}
+									</p>
+								</div>
+								<div className='space-y-4 pl-4 border-l-2 border-gray-200'>
+									{(question.questions || []).map((nestedQuestion, nestedIndex) => {
+										const answers = getAnswersByQuestion(nestedQuestion.id);
+										return (
+											<div key={nestedQuestion.id}>
+												<div className='flex items-start justify-between mb-2'>
+													<div>
+														<h4 className='text-md font-medium text-gray-800'>
+															{index + 1}.{nestedIndex + 1}. {nestedQuestion.title}
+														</h4>
+														<p className='text-sm text-gray-500 mt-1'>{answers.length} respostas</p>
+													</div>
+												</div>
+												{renderAnswerAnalysis(nestedQuestion, answers)}
+											</div>
+										);
+									})}
+								</div>
+							</div>
+						);
+					}
 
+					const answers = getAnswersByQuestion(question.id);
 					return (
 						<div key={question.id} className='bg-white rounded-lg border border-gray-200 p-6'>
 							<div className='flex items-start justify-between mb-4'>
@@ -103,89 +152,104 @@ export const Results: React.FC<ResultsProps> = ({ form, responses, onBack }) => 
 									</h3>
 									<p className='text-sm text-gray-500 mt-1'>{answers.length} respostas</p>
 								</div>
+								<div className='text-right'>
+									<p className='text-xs text-gray-400'>Última resposta</p>
+									<p className='text-sm text-gray-500'>
+										{formResponses.length > 0
+											? formatDateTime(formResponses[formResponses.length - 1].submittedAt)
+											: 'N/A'}
+									</p>
+								</div>
 							</div>
-
-							{question.type === 'multiple-choice' ? (
-								<div className='space-y-3'>
-									{(question.options || []).map((option) => {
-										const count = answers.filter((answer) => answer === option).length;
-										const percentage =
-											answers.length > 0 ? Math.round((count / answers.length) * 100) : 0;
-
-										return (
-											<div key={option} className='flex items-center'>
-												<div className='flex-1'>
-													<div className='flex justify-between items-center mb-1'>
-														<span className='text-sm text-gray-700'>{option}</span>
-														<span className='text-sm text-gray-500'>
-															{count} ({percentage}%)
-														</span>
-													</div>
-													<div className='w-full bg-gray-200 rounded-full h-2'>
-														<div
-															className='bg-blue-500 h-2 rounded-full transition-all duration-300'
-															style={{ width: `${percentage}%` }}
-														/>
-													</div>
-												</div>
-											</div>
-										);
-									})}
-								</div>
-							) : question.type === 'rating' ? (
-								<div className='space-y-2'>
-									{[5, 4, 3, 2, 1].map((rating) => {
-										const count = answers.filter((answer) => Number(answer) === rating).length;
-										const percentage =
-											answers.length > 0 ? Math.round((count / answers.length) * 100) : 0;
-
-										return (
-											<div key={rating} className='flex items-center'>
-												<span className='w-8 text-sm text-gray-700'>{rating}★</span>
-												<div className='flex-1 ml-3'>
-													<div className='flex justify-between items-center mb-1'>
-														<div className='w-full bg-gray-200 rounded-full h-2'>
-															<div
-																className='bg-yellow-400 h-2 rounded-full transition-all duration-300'
-																style={{ width: `${percentage}%` }}
-															/>
-														</div>
-														<span className='text-sm text-gray-500 ml-3'>{count}</span>
-													</div>
-												</div>
-											</div>
-										);
-									})}
-									<div className='mt-3 text-sm text-gray-600'>
-										Média:{' '}
-										{answers.length > 0
-											? (
-													answers.reduce((sum, answer) => sum + Number(answer), 0) / answers.length
-											  ).toFixed(1)
-											: '0.0'}{' '}
-										estrelas
-									</div>
-								</div>
-							) : (
-								<div className='space-y-2'>
-									{answers.slice(0, 3).map((answer, i) => (
-										<div key={i} className='p-3 bg-gray-50 rounded-lg'>
-											<p className='text-sm text-gray-700'>{String(answer)}</p>
-										</div>
-									))}
-									{answers.length > 3 && (
-										<p className='text-sm text-gray-500'>
-											+{answers.length - 3} respostas adicionais
-										</p>
-									)}
-								</div>
-							)}
+							{renderAnswerAnalysis(question, answers)}
 						</div>
 					);
 				})}
 			</div>
 		</div>
 	);
+
+	const renderAnswerAnalysis = (question: Form['questions'][0], answers: any[]) => {
+		if (question.type === 'multiple-choice') {
+			return (
+				<div className='space-y-3'>
+					{(question.options || []).map((option) => {
+						const count = answers.filter((answer) => answer === option).length;
+						const percentage = answers.length > 0 ? Math.round((count / answers.length) * 100) : 0;
+
+						return (
+							<div key={option} className='flex items-center'>
+								<div className='flex-1'>
+									<div className='flex justify-between items-center mb-1'>
+										<span className='text-sm text-gray-700'>{option}</span>
+										<span className='text-sm text-gray-500'>
+											{count} ({percentage}%)
+										</span>
+									</div>
+									<div className='w-full bg-gray-200 rounded-full h-2'>
+										<div
+											className='bg-blue-500 h-2 rounded-full transition-all duration-300'
+											style={{ width: `${percentage}%` }}
+										/>
+									</div>
+								</div>
+							</div>
+						);
+					})}
+				</div>
+			);
+		}
+
+		if (question.type === 'rating') {
+			return (
+				<div className='space-y-2'>
+					{[5, 4, 3, 2, 1].map((rating) => {
+						const count = answers.filter((answer) => Number(answer) === rating).length;
+						const percentage = answers.length > 0 ? Math.round((count / answers.length) * 100) : 0;
+
+						return (
+							<div key={rating} className='flex items-center'>
+								<span className='w-8 text-sm text-gray-700'>{rating}★</span>
+								<div className='flex-1 ml-3'>
+									<div className='flex justify-between items-center mb-1'>
+										<div className='w-full bg-gray-200 rounded-full h-2'>
+											<div
+												className='bg-yellow-400 h-2 rounded-full transition-all duration-300'
+												style={{ width: `${percentage}%` }}
+											/>
+										</div>
+										<span className='text-sm text-gray-500 ml-3'>{count}</span>
+									</div>
+								</div>
+							</div>
+						);
+					})}
+					<div className='mt-3 text-sm text-gray-600'>
+						Média:{' '}
+						{answers.length > 0
+							? (answers.reduce((sum, answer) => sum + Number(answer), 0) / answers.length).toFixed(
+									1
+							  )
+							: '0.0'}{' '}
+						estrelas
+					</div>
+				</div>
+			);
+		}
+
+		return (
+			<div className='space-y-2'>
+				{answers.slice(0, 3).map((answer, i) => (
+					<div key={i} className='p-3 bg-gray-50 rounded-lg'>
+						<p className='text-sm text-gray-700'>{String(answer)}</p>
+					</div>
+				))}
+				{answers.length > 3 && (
+					<p className='text-sm text-gray-500'>+{answers.length - 3} respostas adicionais</p>
+				)}
+			</div>
+		);
+	};
 
 	const renderResponsesTab = () => (
 		<div className='space-y-6'>
@@ -209,16 +273,16 @@ export const Results: React.FC<ResultsProps> = ({ form, responses, onBack }) => 
 								onClick={() => setSelectedResponse(response)}
 							>
 								<div className='flex items-center justify-between'>
-									<div>
-										<p className='text-sm font-medium text-gray-900'>Resposta #{index + 1}</p>
+									<p className='text-sm font-medium text-gray-900'>Resposta #{index + 1}</p>
+									<div className='flex items-center space-x-4'>
 										<p className='text-sm text-gray-500'>{formatDateTime(response.submittedAt)}</p>
+										<ChevronRight className='h-5 w-5 text-gray-400' />
 									</div>
-									<ChevronRight className='h-5 w-5 text-gray-400' />
 								</div>
 
 								<div className='mt-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4'>
 									{response.answers.slice(0, 3).map((answer) => {
-										const question = form.questions.find((q) => q.id === answer.questionId);
+										const question = findQuestionById(answer.questionId);
 										return (
 											<div key={answer.questionId} className='min-w-0'>
 												<p className='text-xs text-gray-500 truncate'>{question?.title}</p>
@@ -304,7 +368,7 @@ export const Results: React.FC<ResultsProps> = ({ form, responses, onBack }) => 
 
 						<div className='p-6 space-y-6'>
 							{selectedResponse.answers.map((answer) => {
-								const question = form.questions.find((q) => q.id === answer.questionId);
+								const question = findQuestionById(answer.questionId);
 								if (!question) return null;
 
 								return (

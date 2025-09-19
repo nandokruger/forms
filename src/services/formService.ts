@@ -24,6 +24,7 @@ const mapQuestionDocToQuestion = (id: string, data: any): Question => {
 		required: Boolean(data.required),
 		order: typeof data.order === 'number' ? data.order : 0,
 		options: data.options,
+		questions: data.questions || undefined, // Include nested questions
 	} as Question;
 };
 
@@ -175,6 +176,7 @@ export const saveForm = async (form: Form): Promise<string> => {
 			required: !!q.required,
 			order: typeof q.order === 'number' ? q.order : 0,
 			options: q.options || [],
+			questions: q.questions || null, // Include nested questions
 		});
 	}
 

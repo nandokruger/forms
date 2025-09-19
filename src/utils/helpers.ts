@@ -41,6 +41,8 @@ export const getQuestionTypeLabel = (type: QuestionType): string => {
 		number: 'Número',
 		date: 'Data',
 		rating: 'Avaliação',
+		'question-group': 'Grupo de Perguntas',
+		'multiquestion': 'Múltiplas Perguntas',
 	};
 	return labels[type];
 };
