@@ -9,6 +9,25 @@ interface FormViewProps {
 	onBack?: () => void;
 }
 
+const scopeCss = (css: string, scope: string): string => {
+	if (!css) return '';
+	try {
+		// This is a basic implementation. For a production app, a proper CSS parser/scoper would be safer.
+		// It splits by blocks, then prefixes selectors.
+		return css.replace(/([^{}]+)({[^{}]+})/g, (_match, selectors, body) => {
+			if (selectors.trim().startsWith('@')) {
+				// Don't scope @-rules like @keyframes, @media, etc.
+				return `${selectors}${body}`;
+			}
+			const scopedSelectors = selectors.split(',').map((selector) => `${scope} ${selector.trim()}`);
+			return `${scopedSelectors.join(', ')} ${body}`;
+		});
+	} catch (e) {
+		console.error('Could not scope CSS, using original. Error:', e);
+		return css; // Return original on error
+	}
+};
+
 export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) => {
 	const [currentQuestionIndex, setCurrentQuestionIndex] = useState(form.welcomeScreen ? -1 : 0); // -1 para tela de início
 	const [currentGroupQuestionIndex, setCurrentGroupQuestionIndex] = useState(0);
@@ -26,9 +45,11 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		}
 	}, []);
 
-	const customCssStyle = customCss ? (
-		<style dangerouslySetInnerHTML={{ __html: customCss }} />
-	) : null;
+	const customCssStyle = customCss
+		? React.createElement('style', {
+				dangerouslySetInnerHTML: { __html: scopeCss(customCss, '#op-form-container') },
+		  })
+		: null;
 
 	const hasWelcomeScreen = !!form.welcomeScreen;
 	const isShowingWelcome = hasWelcomeScreen && currentQuestionIndex === -1;

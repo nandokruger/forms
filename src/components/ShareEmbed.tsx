@@ -160,7 +160,7 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form, onUpdateEmbedConfi
 				);
 			}
 			const div = `<div ${attrs.join(' ').trim()}></div>`;
-			const script = `<script src="${window.location.origin}/embed.js" async></script>`;
+			const script = `<script src="${window.location.origin}/embed.js?v=1.0.0" async></script>`;
 			return `${div}
 ${script}`;
 		}
@@ -765,8 +765,8 @@ ${customCssBlock}`;
 									Tamanho do popup
 								</label>
 								<select
-									value={draftEmbedConfig.popupSize}
-									onChange={(e) => updateDraftEmbedConfig({ popupSize: e.target.value as any })}
+									value={embedConfig.popupSize}
+									onChange={(e) => updateEmbedConfig({ popupSize: e.target.value as any })}
 									className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
 								>
 									<option value='grande'>Grande</option>

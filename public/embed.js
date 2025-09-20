@@ -117,6 +117,14 @@
 				borderRadius: num(el.getAttribute('data-border-radius'), 8),
 			});
 			el.innerHTML = '';
+			// Add a fallback in case the iframe fails to load
+			iframe.onerror = function () {
+				el.innerHTML =
+					'<div style="padding: 20px; text-align: center; color: #666; font-family: sans-serif;">Formulário indisponível.</div>';
+			};
+			iframe.onload = function () {
+				// Clear any potential error message if it loads successfully
+			};
 			el.appendChild(iframe);
 			return;
 		}
