@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { Fragment } from 'react';
 import { User } from '../types';
 import { ToastProvider } from './ToastProvider';
+import { Transition } from '@headlessui/react';
 
 interface LayoutProps {
 	children: React.ReactNode;
@@ -25,14 +26,22 @@ export const Layout: React.FC<LayoutProps> = ({
 	if (isEmbed) {
 		return (
 			<ToastProvider>
-				<div className='min-h-screen'>
+				<Transition
+					as='div'
+					className='min-h-screen'
+					appear={true}
+					show={true}
+					enter='transition-opacity duration-300'
+					enterFrom='opacity-0'
+					enterTo='opacity-100'
+				>
 					{children}
 					{isLoading && (
 						<div className='fixed inset-0 z-[1000] flex items-center justify-center bg-white/60'>
 							<div className='h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent' />
 						</div>
 					)}
-				</div>
+				</Transition>
 			</ToastProvider>
 		);
 	}
@@ -40,14 +49,23 @@ export const Layout: React.FC<LayoutProps> = ({
 	if (!user) {
 		return (
 			<ToastProvider>
-				<div className='min-h-screen bg-gray-50'>
+				<Transition
+					as='div'
+					className='min-h-screen bg-gray-50'
+					appear={true}
+					show={true}
+					key={currentView}
+					enter='transition-opacity duration-300'
+					enterFrom='opacity-0'
+					enterTo='opacity-100'
+				>
 					{children}
 					{isLoading && (
 						<div className='fixed inset-0 z-[1000] flex items-center justify-center bg-white/60'>
 							<div className='h-10 w-10 animate-spin rounded-full border-4 border-blue-500 border-t-transparent' />
 						</div>
 					)}
-				</div>
+				</Transition>
 			</ToastProvider>
 		);
 	}
@@ -113,7 +131,19 @@ export const Layout: React.FC<LayoutProps> = ({
 				</header>
 
 				{/* Main Content */}
-				<main className='flex-1'>{children}</main>
+				<main className='flex-1'>
+					<Transition
+						as='div'
+						appear={true}
+						show={true}
+						key={currentView}
+						enter='transition-all duration-300 ease-out'
+						enterFrom='opacity-0 translate-y-2'
+						enterTo='opacity-100 translate-y-0'
+					>
+						{children}
+					</Transition>
+				</main>
 
 				{isLoading && (
 					<div className='fixed inset-0 z-[1000] flex items-center justify-center bg-white/60'>
