@@ -629,7 +629,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 					</div>
 				</div>
 
-				<div className='flex-1 overflow-y-auto p-4'>
+				<div className='flex-1 overflow-y-auto p-4 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300'>
 					{/* Welcome Screen Section */}
 					{form.welcomeScreen && (
 						<div className='mb-4'>
@@ -1061,7 +1061,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												type='text'
 												value={welcomeScreen.title}
 												onChange={(e) => updateWelcomeScreen({ title: e.target.value })}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												className='shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 												placeholder='Título da tela de início'
 											/>
 										</div>
@@ -1074,7 +1074,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												value={welcomeScreen.description || ''}
 												onChange={(e) => updateWelcomeScreen({ description: e.target.value })}
 												rows={3}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 												placeholder='Mensagem de boas-vindas...'
 											/>
 										</div>
@@ -1088,7 +1088,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 													type='text'
 													value={welcomeScreen.buttonText || ''}
 													onChange={(e) => updateWelcomeScreen({ buttonText: e.target.value })}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md'
+													className='w-fullshadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 													placeholder='Ex: Começar'
 												/>
 											</div>
@@ -1160,7 +1160,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 															title: e.target.value,
 														})
 													}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 													placeholder='Digite sua pergunta...'
 												/>
 											</div>
@@ -1178,7 +1178,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 														})
 													}
 													rows={2}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 													placeholder='Adicione uma descrição...'
 												/>
 											</div>
@@ -1220,7 +1220,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 																			{ options: newOptions }
 																		);
 																	}}
-																	className='flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+																	className='flex-1 shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 																	placeholder={`Opção ${index + 1}`}
 																/>
 																<button
@@ -1303,7 +1303,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 															title: e.target.value,
 														})
 													}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 													placeholder='Digite o título do grupo...'
 												/>
 											</div>
@@ -1321,7 +1321,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 														})
 													}
 													rows={2}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+													className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 													placeholder='Adicione uma descrição para o grupo...'
 												/>
 											</div>
@@ -1446,7 +1446,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 														title: e.target.value,
 													})
 												}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 												placeholder='Digite sua pergunta...'
 											/>
 										</div>
@@ -1464,7 +1464,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 													})
 												}
 												rows={2}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 												placeholder='Adicione uma descrição...'
 											/>
 										</div>
@@ -1746,12 +1746,12 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 													onChange={(checked) =>
 														updateQuestion(selectedQuestion.id, { required: checked })
 													}
-													className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+													className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
 														selectedQuestion.required ? 'bg-blue-600' : 'bg-gray-200'
 													}`}
 												>
 													<span
-														className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+														className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
 															selectedQuestion.required ? 'translate-x-5' : 'translate-x-1'
 														}`}
 													/>
@@ -1785,7 +1785,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												type='text'
 												value={selectedFinal.title}
 												onChange={(e) => updateFinal(selectedFinal.id, { title: e.target.value })}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 												placeholder='Título da tela final'
 											/>
 										</div>
@@ -1800,7 +1800,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 													updateFinal(selectedFinal.id, { description: e.target.value })
 												}
 												rows={3}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+												className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 												placeholder='Mensagem final...'
 											/>
 										</div>
@@ -1816,7 +1816,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 													onChange={(e) =>
 														updateFinal(selectedFinal.id, { buttonText: e.target.value })
 													}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md'
+													className='w-full shadow-xs bg-gray-50 border border-gray-300 text-gray-900 text-md rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500 dark:shadow-xs-light'
 													placeholder='Ex: Concluir'
 												/>
 											</div>

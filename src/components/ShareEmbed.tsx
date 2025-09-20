@@ -264,11 +264,11 @@ ${script}`;
 						type='text'
 						value={formUrl}
 						readOnly
-						className='flex-1 px-4 py-3 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none'
+						className='flex-1 px-4 py-2 bg-gray-50 border border-gray-300 rounded-lg text-gray-900 focus:outline-none'
 					/>
 					<button
 						onClick={handleCopyLink}
-						className={`px-6 py-3 rounded-lg font-medium transition-all ${
+						className={`px-6 py-2 rounded-lg font-medium transition-all ${
 							linkCopied
 								? 'bg-green-100 text-green-700 border border-green-300'
 								: 'bg-blue-600 text-white hover:bg-blue-700'
@@ -290,7 +290,7 @@ ${script}`;
 						href={formUrl}
 						target='_blank'
 						rel='noopener noreferrer'
-						className='px-4 py-3 rounded-lg border border-gray-300 text-gray-700 hover:bg-white'
+						className='px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-white'
 					>
 						Abrir
 					</a>
