@@ -1859,7 +1859,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							/>
 						</div>
 					) : activeTab === 'share' ? (
-						<div className='max-w-6xl mx-auto'>
+						<div className=' mx-auto'>
 							<ShareEmbed form={form} onBack={() => setActiveTab('content')} />
 						</div>
 					) : (

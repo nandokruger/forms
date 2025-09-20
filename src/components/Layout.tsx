@@ -22,8 +22,9 @@ export const Layout: React.FC<LayoutProps> = ({
 	const search = typeof window !== 'undefined' ? window.location.search : '';
 	const params = new URLSearchParams(search);
 	const isEmbed = params.get('embed') === 'true' || params.get('hideHeaders') === 'true';
+	const isPublicFormView = currentView === 'form-view';
 
-	if (isEmbed) {
+	if (isEmbed || isPublicFormView) {
 		return (
 			<ToastProvider>
 				<Transition

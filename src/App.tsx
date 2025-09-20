@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Layout } from './components/Layout';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
@@ -17,7 +17,7 @@ import {
 } from './services/formService';
 import { signIn, signUp, logout, onAuthStateChange } from './services/authService';
 import { generateId } from './utils/helpers';
-import { Form } from './types';
+import { Form, Response } from './types';
 import { useEffect } from 'react';
 
 function App() {
@@ -35,11 +35,14 @@ function App() {
 		setLoading,
 		initializeMockData,
 	} = useAppState();
+	const [isPreviewing, setIsPreviewing] = useState(false);
 
 	// Support direct access to /form/:id without requiring login
 	useEffect(() => {
 		const path = window.location.pathname;
 		const match = path.match(/^\/form\/(.+)$/);
+
+		setIsPreviewing(false);
 
 		if (match && match[1]) {
 			const formId = match[1];
@@ -175,11 +178,13 @@ function App() {
 	};
 
 	const handleEditForm = (form: Form) => {
+		setIsPreviewing(false);
 		setCurrentForm(form);
 		setView('form-editor');
 	};
 
 	const handleViewResults = async (form: Form) => {
+		setIsPreviewing(false);
 		setCurrentForm(form);
 		setView('results');
 
@@ -234,11 +239,12 @@ function App() {
 
 	const handlePreviewForm = () => {
 		if (state.currentForm) {
+			setIsPreviewing(true);
 			setView('form-view');
 		}
 	};
 
-	const handleSubmitResponse = async (response: any) => {
+	const handleSubmitResponse = async (response: Response) => {
 		try {
 			setLoading(true);
 			await saveResponse(response);
@@ -252,7 +258,13 @@ function App() {
 		}
 	};
 
+	const handleBackFromPreview = () => {
+		setView('form-editor');
+		setIsPreviewing(false);
+	};
+
 	const handleNavigate = (view: string) => {
+		setIsPreviewing(false);
 		switch (view) {
 			case 'dashboard':
 				setView('dashboard');
@@ -300,6 +312,7 @@ function App() {
 						onUpdateForm={updateForm}
 						onSave={async () => {
 							try {
+								setIsPreviewing(false);
 								await saveForm(state.currentForm!);
 								setView('dashboard');
 								// reload forms list
@@ -314,7 +327,10 @@ function App() {
 							}
 						}}
 						onPreview={handlePreviewForm}
-						onBack={() => setView('dashboard')}
+						onBack={() => {
+							setView('dashboard');
+							setIsPreviewing(false);
+						}}
 					/>
 				) : (
 					<div>Formulário não encontrado</div>
@@ -325,7 +341,7 @@ function App() {
 					<FormView
 						form={state.currentForm}
 						onSubmit={handleSubmitResponse}
-						onBack={!isEmbed ? () => setView('form-editor') : undefined}
+						onBack={isPreviewing && !isEmbed ? handleBackFromPreview : undefined}
 					/>
 				) : (
 					<div />
@@ -336,7 +352,10 @@ function App() {
 					<Results
 						form={state.currentForm}
 						responses={state.responses}
-						onBack={() => setView('dashboard')}
+						onBack={() => {
+							setView('dashboard');
+							setIsPreviewing(false);
+						}}
 					/>
 				);
 
