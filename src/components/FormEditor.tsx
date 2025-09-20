@@ -49,6 +49,65 @@ const questionTypeIcons: Record<QuestionType, React.ReactNode> = {
 	multiquestion: <Layers className='h-4 w-4' />,
 };
 
+const QuestionTypeSelector = ({
+	value,
+	onChange,
+	className,
+	disabledTypes = [],
+}: {
+	value: QuestionType;
+	onChange: (type: QuestionType) => void;
+	className?: string;
+	disabledTypes?: QuestionType[];
+}) => {
+	const allOptions: { value: QuestionType; label: string }[] = [
+		{ value: 'short-text', label: 'Texto Curto' },
+		{ value: 'long-text', label: 'Texto Longo' },
+		{ value: 'multiple-choice', label: 'Múltipla Escolha' },
+		{ value: 'email', label: 'E-mail' },
+		{ value: 'number', label: 'Número' },
+		{ value: 'date', label: 'Data' },
+		{ value: 'rating', label: 'Avaliação' },
+		{ value: 'question-group', label: 'Grupo de Perguntas' },
+		{ value: 'multiquestion', label: 'Múltiplas Perguntas' },
+	];
+
+	const options = allOptions.filter((opt) => !disabledTypes.includes(opt.value));
+	const selectedOption = allOptions.find((opt) => opt.value === value);
+
+	return (
+		<div className='relative'>
+			<details className='group'>
+				<summary
+					className={`list-none w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer flex items-center justify-between ${className}`}
+				>
+					<span className='flex items-center'>
+						{selectedOption && questionTypeIcons[selectedOption.value]}
+						<span className='ml-2'>{selectedOption ? selectedOption.label : 'Selecione...'}</span>
+					</span>
+					<ChevronDown className='h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform' />
+				</summary>
+				<div className='absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden'>
+					{options.map((option) => (
+						<button
+							key={option.value}
+							onClick={(e) => {
+								onChange(option.value);
+								const details = (e.currentTarget as HTMLElement).closest('details');
+								if (details) details.open = false;
+							}}
+							className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
+						>
+							{questionTypeIcons[option.value]}
+							<span className='ml-2'>{option.label}</span>
+						</button>
+					))}
+				</div>
+			</details>
+		</div>
+	);
+};
+
 export const FormEditor: React.FC<FormEditorProps> = ({
 	form,
 	onUpdateForm,
@@ -866,7 +925,10 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							<button onClick={onBack} className='text-sm text-gray-400 hover:text-gray-600'>
 								← Voltar
 							</button>
-							<h1 className='text-xl font-semibold text-gray-900'>{form.title}</h1>
+							<div className='flex items-center space-x-2'>
+								<FileText className='h-5 w-5 text-gray-500' />
+								<h1 className='text-xl font-semibold text-gray-900'>{form.title}</h1>
+							</div>
 						</div>
 						<div className='flex items-center space-x-3'>
 							<button
@@ -891,6 +953,12 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 					{activeTab === 'content' ? (
 						isWelcomeScreenSelected && welcomeScreen ? (
 							<div className='max-w-2xl mx-auto p-6'>
+								<div className='mb-3 p-3 bg-gray-100 rounded-lg border border-gray-200'>
+									<div className='flex items-center space-x-2'>
+										<PlayCircle className='h-4 w-4 text-gray-600' />
+										<span className='text-sm font-medium text-gray-700'>{welcomeScreen.title}</span>
+									</div>
+								</div>
 								<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
 									<div className='space-y-6'>
 										<div>
@@ -955,10 +1023,19 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 									</div>
 								</div>
 							</div>
-						) : selectedQuestion ? (
+						) : selectedQuestion &&
+						  ['question-group', 'multiquestion'].includes(selectedQuestion.type) ? (
 							selectedGroupQuestion ? (
 								/* Group Question Editor */
 								<div className='max-w-2xl mx-auto p-6'>
+									<div className='mb-3 p-3 bg-gray-100 rounded-lg border border-gray-200'>
+										<div className='flex items-center space-x-2'>
+											{questionTypeIcons[selectedGroupQuestion.type]}
+											<span className='text-sm font-medium text-gray-700'>
+												{selectedGroupQuestion.title || 'Pergunta sem título'}
+											</span>
+										</div>
+									</div>
 									<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
 										<div className='mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200'>
 											<div className='flex items-center space-x-2 mb-2'>
@@ -1019,23 +1096,15 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												<label className='block text-sm font-medium text-gray-700 mb-2'>
 													Tipo de pergunta
 												</label>
-												<select
+												<QuestionTypeSelector
 													value={selectedGroupQuestion.type}
-													onChange={(e) =>
+													onChange={(type) =>
 														updateQuestionInGroup(selectedQuestion.id, selectedGroupQuestion.id, {
-															type: e.target.value as QuestionType,
+															type,
 														})
 													}
-													className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-												>
-													<option value='short-text'>Texto Curto</option>
-													<option value='long-text'>Texto Longo</option>
-													<option value='multiple-choice'>Múltipla Escolha</option>
-													<option value='email'>E-mail</option>
-													<option value='number'>Número</option>
-													<option value='date'>Data</option>
-													<option value='rating'>Avaliação</option>
-												</select>
+													disabledTypes={['question-group', 'multiquestion']}
+												/>
 											</div>
 
 											{/* Multiple Choice Options */}
@@ -1119,6 +1188,14 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							) : (
 								/* Group Editor */
 								<div className='max-w-2xl mx-auto p-6'>
+									<div className='mb-3 p-3 bg-gray-100 rounded-lg border border-gray-200'>
+										<div className='flex items-center space-x-2'>
+											{questionTypeIcons[selectedQuestion.type]}
+											<span className='text-sm font-medium text-gray-700'>
+												{selectedQuestion.title}
+											</span>
+										</div>
+									</div>
 									<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
 										<div className='space-y-6'>
 											{/* Group Title */}
@@ -1249,6 +1326,14 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							)
 						) : selectedQuestion ? (
 							<div className='max-w-2xl mx-auto p-6'>
+								<div className='mb-3 p-3 bg-gray-100 rounded-lg border border-gray-200'>
+									<div className='flex items-center space-x-2'>
+										{questionTypeIcons[selectedQuestion.type]}
+										<span className='text-sm font-medium text-gray-700'>
+											{selectedQuestion.title}
+										</span>
+									</div>
+								</div>
 								<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
 									<div className='space-y-6'>
 										{/* Question Title */}
@@ -1292,25 +1377,14 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 											<label className='block text-sm font-medium text-gray-700 mb-2'>
 												Tipo de pergunta
 											</label>
-											<select
+											<QuestionTypeSelector
 												value={selectedQuestion.type}
-												onChange={(e) =>
+												onChange={(type) =>
 													updateQuestion(selectedQuestion.id, {
-														type: e.target.value as QuestionType,
+														type,
 													})
 												}
-												className='w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
-											>
-												<option value='short-text'>Texto Curto</option>
-												<option value='long-text'>Texto Longo</option>
-												<option value='multiple-choice'>Múltipla Escolha</option>
-												<option value='email'>E-mail</option>
-												<option value='number'>Número</option>
-												<option value='date'>Data</option>
-												<option value='rating'>Avaliação</option>
-												<option value='question-group'>Grupo de Perguntas</option>
-												<option value='multiquestion'>Múltiplas Perguntas</option>
-											</select>
+											/>
 										</div>
 
 										{/* Multiple Choice Options */}
@@ -1588,6 +1662,18 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							</div>
 						) : selectedFinal ? (
 							<div className='max-w-2xl mx-auto p-6'>
+								<div className='mb- p-3 bg-gray-100 rounded-lg border border-gray-200'>
+									<div className='flex items-center space-x-2'>
+										<FileText className='h-4 w-4 text-gray-600' />
+										<span className='text-sm font-medium text-gray-700'>
+											{selectedFinal.title ||
+												getFinalCardTitle(
+													finals.findIndex((f) => f.id === selectedFinalId),
+													selectedFinal
+												)}
+										</span>
+									</div>
+								</div>
 								<div className='bg-white rounded-lg shadow-sm border border-gray-200 p-8'>
 									<div className='space-y-6'>
 										<div>
