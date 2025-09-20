@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { Fragment, useState } from 'react';
 import {
 	Plus,
 	Settings,
@@ -18,10 +18,12 @@ import {
 	ChevronDown,
 	ChevronUp,
 	Folder,
+	AlertTriangle,
 	Layers,
 	PlayCircle,
 } from 'lucide-react';
 import { Form, Question, QuestionType, FormWorkflow, FinalScreen, WelcomeScreen } from '../types';
+import { Dialog, Menu, Switch, Transition } from '@headlessui/react';
 import { createEmptyQuestion, getQuestionTypeLabel } from '../utils/helpers';
 import { useToast } from './ToastProvider';
 import { WorkflowBuilder } from './WorkflowBuilder';
@@ -134,6 +136,13 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 					.map((q) => q.id)
 			)
 	);
+	const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+	const [itemToDelete, setItemToDelete] = useState<{
+		type: 'question' | 'group-question' | 'welcome' | 'final';
+		id: string;
+		groupId?: string;
+		title?: string;
+	} | null>(null);
 
 	const { showToast } = useToast();
 
@@ -431,7 +440,28 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 		onUpdateForm(updatedForm);
 	};
 
-	//
+	const handleDeleteConfirm = () => {
+		if (!itemToDelete) return;
+
+		switch (itemToDelete.type) {
+			case 'question':
+				deleteQuestion(itemToDelete.id);
+				break;
+			case 'group-question':
+				if (itemToDelete.groupId) {
+					deleteQuestionFromGroup(itemToDelete.groupId, itemToDelete.id);
+				}
+				break;
+			case 'welcome':
+				deleteWelcomeScreen();
+				break;
+			case 'final':
+				deleteFinal(itemToDelete.id);
+				break;
+		}
+		setIsDeleteDialogOpen(false);
+		setItemToDelete(null);
+	};
 
 	return (
 		<div className='h-screen bg-gray-50 flex'>
@@ -439,8 +469,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			<div className='w-80 bg-white border-r border-gray-200 flex flex-col'>
 				<div className='px-6 pt-4 pb-0 border-b border-gray-200'>
 					<div className='relative'>
-						<details className='group'>
-							<summary className='list-none w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer flex items-center justify-between'>
+						<Menu as='div' className='relative'>
+							<Menu.Button className='w-full px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer flex items-center justify-between ui-open:ring-2 ui-open:ring-blue-500 ui-open:border-blue-500'>
 								<span className='flex items-center'>
 									{activeTab === 'content' && <FileText className='h-4 w-4 mr-2' />}
 									{activeTab === 'workflow' && <Workflow className='h-4 w-4 mr-2' />}
@@ -451,109 +481,150 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 									{activeTab === 'settings' && 'Configurações'}
 									{activeTab === 'share' && 'Share'}
 								</span>
-								<ChevronDown className='h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform' />
-							</summary>
-							<div className='absolute z-10 mt-2 w-full bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden'>
-								<button
-									onClick={(e) => {
-										setActiveTab('content');
-										const details = e.currentTarget.closest('details') as HTMLDetailsElement | null;
-										if (details) details.open = false;
-									}}
-									className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-								>
-									<FileText className='h-4 w-4 mr-2 text-gray-600' /> Conteúdo
-								</button>
-								<button
-									onClick={(e) => {
-										setActiveTab('workflow');
-										const details = e.currentTarget.closest('details') as HTMLDetailsElement | null;
-										if (details) details.open = false;
-									}}
-									className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-								>
-									<Workflow className='h-4 w-4 mr-2 text-gray-600' /> Workflow
-								</button>
-								<button
-									onClick={(e) => {
-										setActiveTab('settings');
-										const details = e.currentTarget.closest('details') as HTMLDetailsElement | null;
-										if (details) details.open = false;
-									}}
-									className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-								>
-									<Settings className='h-4 w-4 mr-2 text-gray-600' /> Configurações
-								</button>
-								<button
-									onClick={(e) => {
-										setActiveTab('share');
-										const details = e.currentTarget.closest('details') as HTMLDetailsElement | null;
-										if (details) details.open = false;
-									}}
-									className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-								>
-									<Share2 className='h-4 w-4 mr-2 text-gray-600' /> Share
-								</button>
-							</div>
-						</details>
+								<ChevronDown className='h-4 w-4 text-gray-500 ui-open:rotate-180 transition-transform' />
+							</Menu.Button>
+							<Transition
+								as={Fragment}
+								enter='transition ease-out duration-100'
+								enterFrom='transform opacity-0 scale-95'
+								enterTo='transform opacity-100 scale-100'
+								leave='transition ease-in duration-75'
+								leaveFrom='transform opacity-100 scale-100'
+								leaveTo='transform opacity-0 scale-95'
+							>
+								<Menu.Items className='absolute z-10 mt-2 w-full origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none'>
+									<div className='py-1'>
+										<Menu.Item>
+											{({ active }) => (
+												<button
+													onClick={() => setActiveTab('content')}
+													className={`${
+														active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+													} group flex w-full items-center px-3 py-2 text-left text-sm`}
+												>
+													<FileText className='h-4 w-4 mr-2 text-gray-600' /> Conteúdo
+												</button>
+											)}
+										</Menu.Item>
+										<Menu.Item>
+											{({ active }) => (
+												<button
+													onClick={() => setActiveTab('workflow')}
+													className={`${
+														active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+													} group flex w-full items-center px-3 py-2 text-left text-sm`}
+												>
+													<Workflow className='h-4 w-4 mr-2 text-gray-600' /> Workflow
+												</button>
+											)}
+										</Menu.Item>
+										<Menu.Item>
+											{({ active }) => (
+												<button
+													onClick={() => setActiveTab('settings')}
+													className={`${
+														active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+													} group flex w-full items-center px-3 py-2 text-left text-sm`}
+												>
+													<Settings className='h-4 w-4 mr-2 text-gray-600' /> Configurações
+												</button>
+											)}
+										</Menu.Item>
+										<Menu.Item>
+											{({ active }) => (
+												<button
+													onClick={() => setActiveTab('share')}
+													className={`${
+														active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+													} group flex w-full items-center px-3 py-2 text-left text-sm`}
+												>
+													<Share2 className='h-4 w-4 mr-2 text-gray-600' /> Share
+												</button>
+											)}
+										</Menu.Item>
+									</div>
+								</Menu.Items>
+							</Transition>
+						</Menu>
 					</div>
 					{/* Top Header */}
 					<div className='flex items-center space-x-4 mb-1 mt-5 justify-between'>
 						<h2 className='text-lg font-semibold text-gray-900'>Perguntas</h2>
-						<div className='relative group'>
-							<details className='group'>
-								<summary className='list-none flex items-center space-x-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer'>
+						<div className='relative'>
+							<Menu as='div' className='relative inline-block text-left'>
+								<Menu.Button className='flex items-center space-x-2 px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer ui-open:ring-2 ui-open:ring-blue-500 ui-open:border-blue-500'>
 									<span className='flex items-center'>
 										<Plus className='h-3 w-3 mr-2 text-gray-600' />
 										Add conteúdo
 									</span>
-									<ChevronDown className='h-4 w-4 text-gray-500 group-open:rotate-180 transition-transform' />
-								</summary>
-								<div className='absolute z-10 mt-2 w-max bg-white border border-gray-200 rounded-md shadow-lg overflow-hidden'>
-									<button
-										onClick={(e) => {
-											addWelcomeScreen();
-											const details = e.currentTarget.closest('details');
-											if (details) details.open = false;
-										}}
-										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed disabled:bg-gray-100'
-										disabled={!!form.welcomeScreen}
-									>
-										<PlayCircle className='h-4 w-4 mr-2 text-orange-600' /> Tela de Início
-									</button>
-									<button
-										onClick={(e) => {
-											addQuestion();
-											const details = e.currentTarget.closest('details');
-											if (details) details.open = false;
-										}}
-										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-									>
-										<Plus className='h-4 w-4 mr-2 text-blue-600' /> Adicionar pergunta
-									</button>
-									<button
-										onClick={(e) => {
-											addQuestionGroup();
-											const details = e.currentTarget.closest('details');
-											if (details) details.open = false;
-										}}
-										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-									>
-										<Folder className='h-4 w-4 mr-2 text-green-600' /> Adicionar grupo de perguntas
-									</button>
-									<button
-										onClick={(e) => {
-											addMultiQuestion();
-											const details = e.currentTarget.closest('details');
-											if (details) details.open = false;
-										}}
-										className='w-full flex items-center px-3 py-2 text-left text-sm hover:bg-gray-50'
-									>
-										<Layers className='h-4 w-4 mr-2 text-purple-600' /> Adicionar múltiplas
-										perguntas
-									</button>
-								</div>
-							</details>
+									<ChevronDown className='h-4 w-4 text-gray-500 ui-open:rotate-180 transition-transform' />
+								</Menu.Button>
+								<Transition
+									as={Fragment}
+									enter='transition ease-out duration-100'
+									enterFrom='transform opacity-0 scale-95'
+									enterTo='transform opacity-100 scale-100'
+									leave='transition ease-in duration-75'
+									leaveFrom='transform opacity-100 scale-100'
+									leaveTo='transform opacity-0 scale-95'
+								>
+									<Menu.Items className='absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none'>
+										<div className='py-1'>
+											<Menu.Item disabled={!!form.welcomeScreen}>
+												{({ active, disabled }) => (
+													<button
+														onClick={addWelcomeScreen}
+														className={`${
+															active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+														} group flex w-full items-center px-3 py-2 text-sm ${
+															disabled ? 'opacity-50 cursor-not-allowed' : ''
+														}`}
+														disabled={disabled}
+													>
+														<PlayCircle className='h-4 w-4 mr-2 text-orange-600' /> Tela de Início
+													</button>
+												)}
+											</Menu.Item>
+											<Menu.Item>
+												{({ active }) => (
+													<button
+														onClick={addQuestion}
+														className={`${
+															active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+														} group flex w-full items-center px-3 py-2 text-sm`}
+													>
+														<Plus className='h-4 w-4 mr-2 text-blue-600' /> Adicionar pergunta
+													</button>
+												)}
+											</Menu.Item>
+											<Menu.Item>
+												{({ active }) => (
+													<button
+														onClick={addQuestionGroup}
+														className={`${
+															active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+														} group flex w-full items-center px-3 py-2 text-sm`}
+													>
+														<Folder className='h-4 w-4 mr-2 text-green-600' /> Adicionar grupo
+													</button>
+												)}
+											</Menu.Item>
+											<Menu.Item>
+												{({ active }) => (
+													<button
+														onClick={addMultiQuestion}
+														className={`${
+															active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+														} group flex w-full items-center px-3 py-2 text-sm`}
+													>
+														<Layers className='h-4 w-4 mr-2 text-purple-600' /> Adicionar múltiplas
+													</button>
+												)}
+											</Menu.Item>
+										</div>
+									</Menu.Items>
+								</Transition>
+							</Menu>
 						</div>
 					</div>
 				</div>
@@ -586,7 +657,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 										<button
 											onClick={(e) => {
 												e.stopPropagation();
-												deleteWelcomeScreen();
+												setItemToDelete({
+													type: 'welcome',
+													id: 'welcome-screen',
+												});
+												setIsDeleteDialogOpen(true);
 											}}
 											className='p-1 text-red-400 hover:text-red-600'
 										>
@@ -671,7 +746,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 														<button
 															onClick={(e) => {
 																e.stopPropagation();
-																deleteQuestion(question.id);
+																setItemToDelete({
+																	type: 'question',
+																	id: question.id,
+																});
+																setIsDeleteDialogOpen(true);
 															}}
 															className='p-1 text-red-400 hover:text-red-600'
 														>
@@ -737,7 +816,12 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 																	<button
 																		onClick={(e) => {
 																			e.stopPropagation();
-																			deleteQuestionFromGroup(question.id, groupQuestion.id);
+																			setItemToDelete({
+																				type: 'group-question',
+																				id: groupQuestion.id,
+																				groupId: question.id,
+																			});
+																			setIsDeleteDialogOpen(true);
 																		}}
 																		className='p-1 text-red-400 hover:text-red-600'
 																	>
@@ -816,7 +900,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 													<button
 														onClick={(e) => {
 															e.stopPropagation();
-															deleteQuestion(question.id);
+															setItemToDelete({
+																type: 'question',
+																id: question.id,
+															});
+															setIsDeleteDialogOpen(true);
 														}}
 														className='p-1 text-red-400 hover:text-red-600'
 													>
@@ -900,7 +988,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												<button
 													onClick={(e) => {
 														e.stopPropagation();
-														deleteFinal(f.id);
+														setItemToDelete({
+															type: 'final',
+															id: f.id,
+														});
+														setIsDeleteDialogOpen(true);
 													}}
 													className='p-1 text-red-400 hover:text-red-600'
 												>
@@ -1304,7 +1396,12 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 																		<button
 																			onClick={(e) => {
 																				e.stopPropagation();
-																				deleteQuestionFromGroup(selectedQuestion.id, question.id);
+																				setItemToDelete({
+																					type: 'group-question',
+																					id: question.id,
+																					groupId: selectedQuestion.id,
+																				});
+																				setIsDeleteDialogOpen(true);
 																			}}
 																			className='p-1 text-red-400 hover:text-red-600'
 																		>
@@ -1640,22 +1737,26 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 
 										{/* Required Toggle - only show for non-group questions */}
 										{selectedQuestion.type !== 'question-group' && (
-											<div className='flex items-center'>
-												<input
-													type='checkbox'
-													id='required'
-													checked={selectedQuestion.required}
-													onChange={(e) =>
-														updateQuestion(selectedQuestion.id, {
-															required: e.target.checked,
-														})
-													}
-													className='h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded'
-												/>
-												<label htmlFor='required' className='ml-2 text-sm text-gray-700'>
+											<Switch.Group as='div' className='flex items-center justify-between'>
+												<Switch.Label as='span' className='text-sm text-gray-700' passive>
 													Resposta obrigatória
-												</label>
-											</div>
+												</Switch.Label>
+												<Switch
+													checked={selectedQuestion.required}
+													onChange={(checked) =>
+														updateQuestion(selectedQuestion.id, { required: checked })
+													}
+													className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+														selectedQuestion.required ? 'bg-blue-600' : 'bg-gray-200'
+													}`}
+												>
+													<span
+														className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+															selectedQuestion.required ? 'translate-x-5' : 'translate-x-1'
+														}`}
+													/>
+												</Switch>
+											</Switch.Group>
 										)}
 									</div>
 								</div>
@@ -1913,6 +2014,50 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			</div>
 
 			{/* Design modal removido temporariamente para corrigir parse */}
+
+			{/* Delete Confirmation Dialog */}
+			<Dialog
+				open={isDeleteDialogOpen}
+				onClose={() => setIsDeleteDialogOpen(false)}
+				className='relative z-50'
+			>
+				<div className='fixed inset-0 bg-black/30' aria-hidden='true' />
+				<div className='fixed inset-0 flex w-screen items-center justify-center p-4'>
+					<Dialog.Panel className='w-full max-w-md rounded-lg bg-white p-6 shadow-xl'>
+						<div className='flex items-start'>
+							<div className='mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10'>
+								<AlertTriangle className='h-6 w-6 text-red-600' aria-hidden='true' />
+							</div>
+							<div className='ml-4 text-left'>
+								<Dialog.Title as='h3' className='text-lg font-medium leading-6 text-gray-900'>
+									Excluir item
+								</Dialog.Title>
+								<div className='mt-2'>
+									<p className='text-sm text-gray-500'>
+										Tem certeza que deseja excluir este item? Esta ação não pode ser desfeita.
+									</p>
+								</div>
+							</div>
+						</div>
+						<div className='mt-5 sm:mt-4 sm:flex sm:flex-row-reverse'>
+							<button
+								type='button'
+								className='inline-flex w-full justify-center rounded-md border border-transparent bg-red-600 px-4 py-2 text-base font-medium text-white shadow-sm hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:ml-3 sm:w-auto sm:text-sm'
+								onClick={handleDeleteConfirm}
+							>
+								Excluir
+							</button>
+							<button
+								type='button'
+								className='mt-3 inline-flex w-full justify-center rounded-md border border-gray-300 bg-white px-4 py-2 text-base font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 sm:mt-0 sm:w-auto sm:text-sm'
+								onClick={() => setIsDeleteDialogOpen(false)}
+							>
+								Cancelar
+							</button>
+						</div>
+					</Dialog.Panel>
+				</div>
+			</Dialog>
 		</div>
 	);
 };
