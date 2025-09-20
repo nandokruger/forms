@@ -22,7 +22,15 @@ import {
 	Layers,
 	PlayCircle,
 } from 'lucide-react';
-import { Form, Question, QuestionType, FormWorkflow, FinalScreen, WelcomeScreen } from '../types';
+import {
+	Form,
+	Question,
+	QuestionType,
+	FormWorkflow,
+	FinalScreen,
+	WelcomeScreen,
+	EmbedConfig,
+} from '../types';
 import { Dialog, Menu, Switch, Transition } from '@headlessui/react';
 import { createEmptyQuestion, getQuestionTypeLabel } from '../utils/helpers';
 import { useToast } from './ToastProvider';
@@ -173,9 +181,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const handleSave = async () => {
 		setIsSaving(true);
 		try {
-			await saveForm(form);
+			await onSave(); // Notifica o componente pai para salvar
 			showToast('Formulário salvo com sucesso!', 'success');
-			onSave(); // Notifica o componente pai
 		} catch (err) {
 			showToast('Erro ao salvar o formulário.', 'error');
 			console.error('Save error:', err);
@@ -1860,7 +1867,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 						</div>
 					) : activeTab === 'share' ? (
 						<div className=' mx-auto'>
-							<ShareEmbed form={form} onBack={() => setActiveTab('content')} />
+							<ShareEmbed
+								form={form}
+								onBack={() => setActiveTab('content')}
+								onUpdateEmbedConfig={(embedConfig) => onUpdateForm({ ...form, embedConfig })}
+							/>
 						</div>
 					) : (
 						/* Settings Tab */

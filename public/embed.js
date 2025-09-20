@@ -17,9 +17,11 @@
 		return isNaN(n) ? def : n;
 	}
 
-	function buildUrl(origin, formId, hideHeaders) {
-		var url = origin.replace(/\/$/, '') + '/form/' + encodeURIComponent(formId) + '?embed=true';
+	function buildUrl(origin, formId, hideHeaders, el) {
+		let url = origin.replace(/\/$/, '') + '/form/' + encodeURIComponent(formId) + '?embed=true';
 		if (hideHeaders) url += '&hideHeaders=true';
+		const customCss = el.getAttribute('data-custom-css');
+		if (customCss) url += '&customCss=' + customCss; // Already encoded
 		return url;
 	}
 
@@ -104,7 +106,7 @@
 		var hideHeaders = parseBool(el.getAttribute('data-hide-headers'));
 		var origin = el.getAttribute('data-origin') || location.origin || '';
 
-		var url = buildUrl(origin, formId, hideHeaders);
+		var url = buildUrl(origin, formId, hideHeaders, el);
 
 		if (mode === 'card' || mode === 'fullwidth') {
 			var iframe = createIframe(url, {

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ChevronLeft, ChevronRight, Star, PlayCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ChevronLeft, ChevronRight, Star, PlayCircle, Check } from 'lucide-react';
 import { Form, Answer, Response, WorkflowRule, FinalScreen } from '../types';
 import { generateId, validateEmail, validateRequired } from '../utils/helpers';
 
@@ -16,6 +16,19 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 	const [isCompleted, setIsCompleted] = useState(false);
 	const [errors, setErrors] = useState<Record<string, string>>({});
 	const [showFinal, setShowFinal] = useState<FinalScreen | null>(null);
+	const [customCss, setCustomCss] = useState('');
+
+	useEffect(() => {
+		const params = new URLSearchParams(window.location.search);
+		const css = params.get('customCss');
+		if (css) {
+			setCustomCss(decodeURIComponent(css));
+		}
+	}, []);
+
+	const customCssStyle = customCss ? (
+		<style dangerouslySetInnerHTML={{ __html: customCss }} />
+	) : null;
 
 	const hasWelcomeScreen = !!form.welcomeScreen;
 	const isShowingWelcome = hasWelcomeScreen && currentQuestionIndex === -1;
@@ -420,14 +433,23 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 					const hasError = !!errors[question.id];
 
 					return (
-						<div key={question.id} className='border-b border-gray-200 pb-6 last:border-b-0'>
+						<div
+							key={question.id}
+							id={`op-multiquestion-item-${question.id}`}
+							className='border-b border-gray-200 pb-6 last:border-b-0'
+						>
 							<div className='mb-4'>
-								<h3 className='text-xl font-semibold mb-2 text-gray-900'>
+								<h3
+									id={`op-question-title-${question.id}`}
+									className='text-xl font-semibold mb-2 text-gray-900'
+								>
 									{question.title}
 									{question.required && <span className='text-red-500 ml-1'>*</span>}
 								</h3>
 								{question.description && (
-									<p className='text-gray-600 mb-4'>{question.description}</p>
+									<p id={`op-question-description-${question.id}`} className='text-gray-600 mb-4'>
+										{question.description}
+									</p>
 								)}
 							</div>
 
@@ -453,6 +475,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'short-text':
 				return (
 					<input
+						id={`op-question-input-${question.id}`}
 						type='text'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
@@ -469,6 +492,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'long-text':
 				return (
 					<textarea
+						id={`op-question-input-${question.id}`}
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
 						className={`w-full px-4 py-3 text-lg border-2 rounded-lg bg-transparent focus:outline-none transition-colors resize-none ${
@@ -485,6 +509,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'email':
 				return (
 					<input
+						id={`op-question-input-${question.id}`}
 						type='email'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
@@ -501,6 +526,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'number':
 				return (
 					<input
+						id={`op-question-input-${question.id}`}
 						type='number'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
@@ -517,6 +543,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'date':
 				return (
 					<input
+						id={`op-question-input-${question.id}`}
 						type='date'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, question.id)}
@@ -535,6 +562,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						{(question.options || []).map((option, index) => (
 							<label
 								key={index}
+								id={`op-question-option-${question.id}-${index}`}
 								className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
 									currentAnswer === option
 										? 'border-blue-500 bg-blue-50'
@@ -542,6 +570,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 								}`}
 							>
 								<input
+									id={`op-question-option-input-${question.id}-${index}`}
 									type='radio'
 									name={question.id}
 									value={option}
@@ -570,6 +599,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						{[1, 2, 3, 4, 5].map((rating) => (
 							<button
 								key={rating}
+								id={`op-question-rating-${question.id}-${rating}`}
 								type='button'
 								onClick={() => handleAnswerChange(rating.toString(), question.id)}
 								className={`w-12 h-12 rounded-full border-2 flex items-center justify-center text-lg font-semibold transition-colors ${
@@ -608,6 +638,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'short-text':
 				return (
 					<input
+						id={`op-question-input-${questionToRender.id}`}
 						type='text'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
@@ -624,6 +655,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'long-text':
 				return (
 					<textarea
+						id={`op-question-input-${questionToRender.id}`}
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
 						rows={4}
@@ -640,6 +672,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'email':
 				return (
 					<input
+						id={`op-question-input-${questionToRender.id}`}
 						type='email'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
@@ -656,6 +689,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'number':
 				return (
 					<input
+						id={`op-question-input-${questionToRender.id}`}
 						type='number'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
@@ -672,6 +706,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			case 'date':
 				return (
 					<input
+						id={`op-question-input-${questionToRender.id}`}
 						type='date'
 						value={currentAnswer}
 						onChange={(e) => handleAnswerChange(e.target.value, questionToRender.id)}
@@ -690,6 +725,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						{(questionToRender.options || []).map((option, index) => (
 							<label
 								key={index}
+								id={`op-question-option-${questionToRender.id}-${index}`}
 								className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-colors ${
 									currentAnswer === option
 										? 'border-blue-500 bg-blue-50'
@@ -697,6 +733,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 								}`}
 							>
 								<input
+									id={`op-question-option-input-${questionToRender.id}-${index}`}
 									type='radio'
 									name={questionToRender.id}
 									value={option}
@@ -725,6 +762,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						{[1, 2, 3, 4, 5].map((rating) => (
 							<button
 								key={rating}
+								id={`op-question-rating-${questionToRender.id}-${rating}`}
 								onClick={() => handleAnswerChange(rating)}
 								className={`p-2 transition-colors ${
 									currentAnswer >= rating
@@ -746,12 +784,15 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 	if (isShowingWelcome) {
 		return (
 			<div
+				key='welcome'
+				id='op-form-container'
 				className={`min-h-screen${
 					useCustomBg ? '' : ' bg-gradient-to-br from-blue-50 to-indigo-100'
 				}`}
 				style={pageStyle}
 			>
 				<div className='p-4'>
+					{customCssStyle}
 					{onBack && (
 						<div className='fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-50'>
 							<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end'>
@@ -767,28 +808,40 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 
 					<div className='flex items-center justify-between max-w-4xl mx-auto'>
 						{!form.hideFormTitle && (
-							<h1 className='text-lg font-semibold' style={titleStyle}>
+							<h1 id='op-form-title' className='text-lg font-semibold' style={titleStyle}>
 								{form.title}
 							</h1>
 						)}
 						{!form.hideQuestionNumber && <div className='text-sm text-gray-500' />}
 					</div>
 				</div>
-				<div className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'>
+				<div
+					id='op-welcome-screen'
+					className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'
+				>
 					<div className='w-full max-w-2xl'>
 						<div className='text-center mb-8'>
-							<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+							<h2
+								id='op-welcome-title'
+								className='text-3xl md:text-4xl font-bold mb-4'
+								style={questionTextStyle}
+							>
 								{form.welcomeScreen?.title}
 							</h2>
 							{form.welcomeScreen?.description && (
-								<p className='text-xl mb-8' style={questionTextStyle}>
+								<p id='op-welcome-description' className='text-xl mb-8' style={questionTextStyle}>
 									{form.welcomeScreen.description}
 								</p>
 							)}
 						</div>
 						<div className='bg-white rounded-2xl shadow-lg p-8 mb-8 text-center'>
 							{form.welcomeScreen?.showButton !== false && (
-								<button onClick={handleNext} className={buttonClass} style={primaryButtonStyle}>
+								<button
+									id='op-welcome-btn'
+									onClick={handleNext}
+									className={buttonClass}
+									style={primaryButtonStyle}
+								>
 									{form.welcomeScreen?.buttonText || 'Começar'}
 									<PlayCircle className='h-5 w-5 ml-2' />
 								</button>
@@ -804,17 +857,20 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 		const useCustomBgFinal = Boolean(
 			form.design?.backgroundColor || form.design?.backgroundImageUrl
 		);
+
 		return (
 			<div
+				id='op-form-container'
 				className={`min-h-screen${
 					useCustomBgFinal ? '' : ' bg-gradient-to-br from-blue-50 to-indigo-100'
 				}`}
 				style={pageStyle}
 			>
 				<div className='p-4'>
+					{customCssStyle}
 					<div className='flex items-center justify-between max-w-4xl mx-auto'>
 						{!form.hideFormTitle && (
-							<h1 className='text-lg font-semibold' style={titleStyle}>
+							<h1 id='op-form-title' className='text-lg font-semibold' style={titleStyle}>
 								{form.title}
 							</h1>
 						)}
@@ -823,14 +879,25 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						)}
 					</div>
 				</div>
-				<div className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'>
+				<div
+					id={`op-final-screen-${showFinal.id}`}
+					className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'
+				>
 					<div className='w-full max-w-2xl'>
 						<div className='text-center mb-8'>
-							<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+							<h2
+								id={`op-final-title-${showFinal.id}`}
+								className='text-3xl md:text-4xl font-bold mb-4'
+								style={questionTextStyle}
+							>
 								{showFinal.title}
 							</h2>
 							{showFinal.description && (
-								<p className='text-xl mb-8' style={questionTextStyle}>
+								<p
+									id={`op-final-description-${showFinal.id}`}
+									className='text-xl mb-8'
+									style={questionTextStyle}
+								>
 									{showFinal.description}
 								</p>
 							)}
@@ -838,6 +905,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						<div className='bg-white rounded-2xl shadow-lg p-8 mb-8 text-center'>
 							{showFinal.showButton !== false && (
 								<button
+									id={`op-final-btn-${showFinal.id}`}
 									onClick={() => {
 										// End flow and submit
 										submitForm();
@@ -857,15 +925,19 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 
 	if (isCompleted) {
 		return (
-			<div className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4'>
+			<div
+				id='op-completion-screen'
+				className='min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4'
+				style={pageStyle}
+			>
 				<div className='max-w-md w-full text-center'>
 					<div className='bg-white rounded-2xl shadow-lg p-8'>
 						<div className='w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4'>
 							<svg
 								className='w-8 h-8 text-green-500'
 								fill='none'
-								stroke='currentColor'
 								viewBox='0 0 24 24'
+								stroke='currentColor'
 							>
 								<path
 									strokeLinecap='round'
@@ -896,11 +968,14 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 	// removed duplicate style declarations (defined earlier)
 	return (
 		<div
+			key='form-view'
+			id='op-form-container'
 			className={`min-h-screen${
 				useCustomBg ? '' : ' bg-gradient-to-br from-blue-50 to-indigo-100'
 			}`}
 			style={pageStyle}
 		>
+			{customCssStyle}
 			{onBack && (
 				<div className='fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-sm border-b border-gray-200 z-50'>
 					<div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 flex justify-end'>
@@ -928,7 +1003,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			<div className='p-4'>
 				<div className='flex items-center justify-between max-w-4xl mx-auto'>
 					{!form.hideFormTitle && (
-						<h1 className='text-lg font-semibold' style={titleStyle}>
+						<h1 id='op-form-title' className='text-lg font-semibold' style={titleStyle}>
 							{form.title}
 						</h1>
 					)}
@@ -944,15 +1019,23 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 			<div className='flex items-center justify-center min-h-[calc(100vh-120px)] p-4'>
 				<div className='w-full max-w-2xl'>
 					{currentQuestion && (
-						<div className='text-center mb-8'>
+						<div id={`op-question-${currentQuestion.id}`} className='text-center mb-8'>
 							{/* Group title and description */}
 							{isCurrentQuestionGroup && (
 								<div className='mb-6'>
-									<h1 className='text-2xl md:text-3xl font-bold mb-2' style={questionTextStyle}>
+									<h1
+										id={`op-group-title-${currentQuestion.id}`}
+										className='text-2xl md:text-3xl font-bold mb-2'
+										style={questionTextStyle}
+									>
 										{currentQuestion.title}
 									</h1>
 									{currentQuestion.description && (
-										<p className='text-lg mb-4' style={questionTextStyle}>
+										<p
+											id={`op-group-description-${currentQuestion.id}`}
+											className='text-lg mb-4'
+											style={questionTextStyle}
+										>
 											{currentQuestion.description}
 										</p>
 									)}
@@ -965,11 +1048,19 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							{/* Multiquestion title and description */}
 							{isCurrentQuestionMulti && (
 								<div className='mb-6'>
-									<h1 className='text-2xl md:text-3xl font-bold mb-2' style={questionTextStyle}>
+									<h1
+										id={`op-multiquestion-title-${currentQuestion.id}`}
+										className='text-2xl md:text-3xl font-bold mb-2'
+										style={questionTextStyle}
+									>
 										{currentQuestion.title}
 									</h1>
 									{currentQuestion.description && (
-										<p className='text-lg mb-4' style={questionTextStyle}>
+										<p
+											id={`op-multiquestion-description-${currentQuestion.id}`}
+											className='text-lg mb-4'
+											style={questionTextStyle}
+										>
 											{currentQuestion.description}
 										</p>
 									)}
@@ -979,12 +1070,20 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							{/* Current question title and description (only for question groups) */}
 							{isCurrentQuestionGroup && currentGroupQuestion && (
 								<div>
-									<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+									<h2
+										id={`op-question-title-${currentGroupQuestion.id}`}
+										className='text-3xl md:text-4xl font-bold mb-4'
+										style={questionTextStyle}
+									>
 										{currentGroupQuestion.title}
 										{currentGroupQuestion.required && <span className='text-red-500 ml-1'>*</span>}
 									</h2>
 									{currentGroupQuestion.description && (
-										<p className='text-xl mb-8' style={questionTextStyle}>
+										<p
+											id={`op-question-description-${currentGroupQuestion.id}`}
+											className='text-xl mb-8'
+											style={questionTextStyle}
+										>
 											{currentGroupQuestion.description}
 										</p>
 									)}
@@ -994,12 +1093,20 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							{/* Regular question (not in group) */}
 							{!isCurrentQuestionGroup && !isCurrentQuestionMulti && (
 								<div>
-									<h2 className='text-3xl md:text-4xl font-bold mb-4' style={questionTextStyle}>
+									<h2
+										id={`op-question-title-${currentQuestion.id}`}
+										className='text-3xl md:text-4xl font-bold mb-4'
+										style={questionTextStyle}
+									>
 										{currentQuestion.title}
 										{currentQuestion.required && <span className='text-red-500 ml-1'>*</span>}
 									</h2>
 									{currentQuestion.description && (
-										<p className='text-xl mb-8' style={questionTextStyle}>
+										<p
+											id={`op-question-description-${currentQuestion.id}`}
+											className='text-xl mb-8'
+											style={questionTextStyle}
+										>
 											{currentQuestion.description}
 										</p>
 									)}
@@ -1008,7 +1115,12 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 						</div>
 					)}
 
-					<div className='bg-white rounded-2xl shadow-lg p-8 mb-8'>
+					<div
+						id={`op-question-input-container-${
+							isCurrentQuestionGroup ? currentGroupQuestion?.id : currentQuestion?.id
+						}`}
+						className='bg-white rounded-2xl shadow-lg p-8 mb-8'
+					>
 						{renderQuestionInput()}
 
 						{/* Error display for question groups */}
@@ -1028,6 +1140,7 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 					{/* Navigation */}
 					<div className='flex items-center justify-between'>
 						<button
+							id='op-form-prev-btn'
 							onClick={handlePrevious}
 							disabled={
 								currentQuestionIndex <= 0 && currentGroupQuestionIndex === 0 && !hasWelcomeScreen
@@ -1042,7 +1155,12 @@ export const FormView: React.FC<FormViewProps> = ({ form, onSubmit, onBack }) =>
 							Anterior
 						</button>
 
-						<button onClick={handleNext} className={buttonClass} style={primaryButtonStyle}>
+						<button
+							id='op-form-next-btn'
+							onClick={handleNext}
+							className={buttonClass}
+							style={primaryButtonStyle}
+						>
 							{isCurrentQuestionGroup || isCurrentQuestionMulti
 								? isLastGroupQuestion && isLastQuestion
 									? 'Enviar'

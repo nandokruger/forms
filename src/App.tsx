@@ -312,18 +312,22 @@ function App() {
 						onUpdateForm={updateForm}
 						onSave={async () => {
 							try {
+								const formToSave = state.currentForm;
+								if (!formToSave) return;
+
 								setIsPreviewing(false);
-								await saveForm(state.currentForm!);
+								await saveForm(formToSave);
+
+								const formExists = state.forms.some((f) => f.id === formToSave.id);
+								if (!formExists) {
+									addForm(formToSave);
+								}
+
 								setView('dashboard');
-								// reload forms list
-								const forms = await getAllForms();
-								setForms(forms);
-								// ensure currentForm points to saved copy
-								const saved = forms.find((f) => f.id === state.currentForm!.id);
-								if (saved) setCurrentForm(saved);
 							} catch (e) {
 								console.error('Erro ao salvar formulário:', e);
-								alert('Erro ao salvar formulário.');
+								// Re-throw to allow the caller (FormEditor) to handle the UI state.
+								throw e;
 							}
 						}}
 						onPreview={handlePreviewForm}
