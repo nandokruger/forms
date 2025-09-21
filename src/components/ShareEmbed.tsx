@@ -117,9 +117,9 @@ export const ShareEmbed: React.FC<ShareEmbedProps> = ({ form, onUpdateEmbedConfi
 		// Common values
 		const width =
 			embedConfig.widthUnit === '%' ? `${embedConfig.width}%` : `${embedConfig.width}px`;
-		const height = embedConfig.height === 'auto' ? 'auto' : `${embedConfig.heightValue}px`;
+		const height = embedConfig.height === 'auto' ? 'auto' : `${embedConfig.heightValue ?? 500}px`;
 		const opacity = (100 - embedConfig.backgroundTransparency) / 100;
-		const baseUrl = `${formUrl}?embed=true${embedConfig.hideHeaders ? '&hideHeaders=true' : ''}`;
+		const baseUrl = embedUrl; // Use embedUrl which already contains customCss
 
 		const customCssBlock = embedConfig.customCss ? `<style>${embedConfig.customCss}</style>` : '';
 
@@ -297,8 +297,8 @@ ${customCssBlock}`;
 				{form.isPublished ? (
 					<div className='rounded-lg overflow-hidden border border-gray-200'>
 						<iframe
-							title='Preview do formulário (link)'
-							src={`${formUrl}?embed=true&hideHeaders=true`}
+							title='Preview do formulário (link)' // Use embedUrl to include custom CSS in preview
+							src={embedUrl}
 							style={{ width: '100%', height: 640, border: '0' }}
 						/>
 					</div>

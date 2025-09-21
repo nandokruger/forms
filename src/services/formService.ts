@@ -75,6 +75,7 @@ const mapFormDocToForm = async (formId: string, formData: any): Promise<Form> =>
 		hideProgressBar: Boolean(formData.hideProgressBar),
 		design: formData.design || undefined,
 		finals: formData.finals || [],
+		embedConfig: formData.embedConfig || undefined,
 	} as Form;
 };
 
@@ -153,6 +154,7 @@ export const saveForm = async (form: Form): Promise<string> => {
 				hideProgressBar: !!form.hideProgressBar,
 				design: replaceUndefinedWithNull(form.design || {}),
 				finals: replaceUndefinedWithNull(form.finals || []),
+				embedConfig: replaceUndefinedWithNull(form.embedConfig || {}),
 				updatedAt: new Date(),
 			},
 			{ merge: true }

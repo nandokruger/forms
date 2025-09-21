@@ -1,4 +1,4 @@
-import React, { Fragment, useState } from 'react';
+import React, { Fragment, useState, useEffect } from 'react';
 import {
 	Plus,
 	Settings,
@@ -136,6 +136,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const [isWelcomeScreenSelected, setIsWelcomeScreenSelected] = useState<boolean>(false);
 	const [isSaving, setIsSaving] = useState(false);
 	const [selectedFinalId, setSelectedFinalId] = useState<string | null>(null);
+	const [isDirty, setIsDirty] = useState(false); // Track unsaved changes
 	const [expandedGroups, setExpandedGroups] = useState<Set<string>>(
 		() =>
 			new Set(
@@ -166,13 +167,29 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			? selectedQuestion.questions?.find((q) => q.id === selectedGroupQuestionId)
 			: null;
 
+	// Wrapper for onUpdateForm to track changes
+	const handleFormUpdate = (updatedForm: Form) => {
+		if (!isDirty) {
+			setIsDirty(true);
+		}
+		onUpdateForm(updatedForm);
+	};
+
+	// Warn user before leaving with unsaved changes
+	useEffect(() => {
+		const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+			if (isDirty) {
+				e.preventDefault();
+				e.returnValue = 'Você tem alterações não salvas. Deseja realmente sair?';
+			}
+		};
+		window.addEventListener('beforeunload', handleBeforeUnload);
+		return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+	}, [isDirty]);
+
 	const addQuestion = () => {
 		const newQuestion = createEmptyQuestion(form.questions.length + 1);
-		const updatedForm = {
-			...form,
-			questions: [...form.questions, newQuestion],
-		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate({ ...form, questions: [...form.questions, newQuestion] });
 		setIsWelcomeScreenSelected(false);
 		setSelectedFinalId(null);
 		setSelectedQuestionId(newQuestion.id);
@@ -183,6 +200,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 		try {
 			await onSave(); // Notifica o componente pai para salvar
 			showToast('Formulário salvo com sucesso!', 'success');
+			setIsDirty(false); // Reset dirty state after successful save
 		} catch (err) {
 			showToast('Erro ao salvar o formulário.', 'error');
 			console.error('Save error:', err);
@@ -213,11 +231,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			order: form.questions.length + 1,
 			questions: [],
 		};
-		const updatedForm = {
-			...form,
-			questions: [...form.questions, newGroup],
-		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate({ ...form, questions: [...form.questions, newGroup] });
 		setIsWelcomeScreenSelected(false);
 		setSelectedFinalId(null);
 		setSelectedQuestionId(newGroup.id);
@@ -234,11 +248,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			order: form.questions.length + 1,
 			questions: [],
 		};
-		const updatedForm = {
-			...form,
-			questions: [...form.questions, newMultiQuestion],
-		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate({ ...form, questions: [...form.questions, newMultiQuestion] });
 		setIsWelcomeScreenSelected(false);
 		setSelectedFinalId(null);
 		setSelectedQuestionId(newMultiQuestion.id);
@@ -254,7 +264,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			buttonText: 'Começar',
 			showButton: true,
 		};
-		onUpdateForm({ ...form, welcomeScreen: newWelcomeScreen });
+		handleFormUpdate({ ...form, welcomeScreen: newWelcomeScreen });
 		setIsWelcomeScreenSelected(true);
 		setSelectedQuestionId(null);
 		setSelectedFinalId(null);
@@ -262,7 +272,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 
 	const updateWelcomeScreen = (updates: Partial<WelcomeScreen>) => {
 		if (!form.welcomeScreen) return;
-		onUpdateForm({
+		handleFormUpdate({
 			...form,
 			welcomeScreen: { ...form.welcomeScreen, ...updates },
 		});
@@ -271,7 +281,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const deleteWelcomeScreen = () => {
 		const newForm = { ...form };
 		delete newForm.welcomeScreen;
-		onUpdateForm(newForm);
+		handleFormUpdate(newForm);
 		setIsWelcomeScreenSelected(false);
 	};
 
@@ -283,21 +293,21 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			buttonText: 'Voltar ao início',
 			showButton: true,
 		};
-		onUpdateForm({ ...form, finals: [...finals, newFinal] });
+		handleFormUpdate({ ...form, finals: [...finals, newFinal] });
 		setIsWelcomeScreenSelected(false);
 		setSelectedQuestionId(null);
 		setSelectedFinalId(newFinal.id);
 	};
 
 	const updateFinal = (finalId: string, updates: Partial<FinalScreen>) => {
-		onUpdateForm({
+		handleFormUpdate({
 			...form,
 			finals: finals.map((f) => (f.id === finalId ? { ...f, ...updates } : f)),
 		});
 	};
 
 	const deleteFinal = (finalId: string) => {
-		onUpdateForm({ ...form, finals: finals.filter((f) => f.id !== finalId) });
+		handleFormUpdate({ ...form, finals: finals.filter((f) => f.id !== finalId) });
 		if (selectedFinalId === finalId) {
 			const remaining = finals.filter((f) => f.id !== finalId);
 			setSelectedFinalId(remaining.length ? remaining[0].id : null);
@@ -313,7 +323,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 		} else if (direction === 'down' && index < list.length - 1) {
 			[list[index], list[index + 1]] = [list[index + 1], list[index]];
 		}
-		onUpdateForm({ ...form, finals: list });
+		handleFormUpdate({ ...form, finals: list });
 	};
 
 	const getFinalCardTitle = (index: number, f: FinalScreen) => {
@@ -322,11 +332,10 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	};
 
 	const updateQuestion = (questionId: string, updates: Partial<Question>) => {
-		const updatedForm = {
+		handleFormUpdate({
 			...form,
 			questions: form.questions.map((q) => (q.id === questionId ? { ...q, ...updates } : q)),
-		};
-		onUpdateForm(updatedForm);
+		});
 	};
 
 	const deleteQuestion = (questionId: string) => {
@@ -334,7 +343,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			...form,
 			questions: form.questions.filter((q) => q.id !== questionId),
 		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate(updatedForm);
 
 		if (selectedQuestionId === questionId) {
 			const remaining = updatedForm.questions;
@@ -357,12 +366,11 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			q.order = i + 1;
 		});
 
-		const updatedForm = { ...form, questions };
-		onUpdateForm(updatedForm);
+		handleFormUpdate({ ...form, questions });
 	};
 
 	const updateFormDetails = (updates: Partial<Form>) => {
-		onUpdateForm({ ...form, ...updates });
+		handleFormUpdate({ ...form, ...updates });
 	};
 
 	// Functions for managing questions within groups
@@ -380,7 +388,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			...form,
 			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
 		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate(updatedForm);
 	};
 
 	const updateQuestionInGroup = (
@@ -402,7 +410,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			...form,
 			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
 		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate(updatedForm);
 	};
 
 	const deleteQuestionFromGroup = (groupId: string, questionId: string) => {
@@ -418,7 +426,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			...form,
 			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
 		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate(updatedForm);
 	};
 
 	const moveQuestionInGroup = (groupId: string, questionId: string, direction: 'up' | 'down') => {
@@ -444,7 +452,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			...form,
 			questions: form.questions.map((q) => (q.id === groupId ? updatedGroup : q)),
 		};
-		onUpdateForm(updatedForm);
+		handleFormUpdate(updatedForm);
 	};
 
 	const handleDeleteConfirm = () => {
@@ -1038,8 +1046,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							</button>
 							<button
 								onClick={handleSave}
-								disabled={isSaving}
-								className='px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+								disabled={isSaving || !isDirty}
+								className='px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:bg-gray-400 disabled:cursor-not-allowed'
 							>
 								{isSaving ? 'Salvando...' : 'Salvar'}
 							</button>
@@ -1870,7 +1878,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 							<ShareEmbed
 								form={form}
 								onBack={() => setActiveTab('content')}
-								onUpdateEmbedConfig={(embedConfig) => onUpdateForm({ ...form, embedConfig })}
+								onUpdateEmbedConfig={(embedConfig) => handleFormUpdate({ ...form, embedConfig })}
 							/>
 						</div>
 					) : (
@@ -2007,14 +2015,13 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 									<DesignModal
 										form={form}
 										onClose={() => setShowDesign(false)}
-										onSave={async (design) => {
+										onSave={(design) => {
 											const updated = { ...form, design };
-											onUpdateForm(updated);
-											try {
-												await saveForm(updated);
-											} catch (e) {
-												console.error('Erro ao salvar design:', e);
-											}
+											handleFormUpdate(updated);
+											showToast(
+												'Design aplicado. Clique em "Salvar" para persistir as alterações.',
+												'info'
+											);
 										}}
 									/>
 								)}

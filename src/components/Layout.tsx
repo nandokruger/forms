@@ -87,7 +87,7 @@ export const Layout: React.FC<LayoutProps> = ({
 										title='Voltar para o dashboard'
 									>
 										{/* {'<'} */}
-										<span className='font-bold'>Op</span>Form
+										<span className='font-bold'>Op</span>Forms
 										{/* {'>'} */}
 									</button>
 								</div>

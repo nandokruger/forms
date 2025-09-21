@@ -4,12 +4,11 @@ import { Form } from '../types';
 interface DesignModalProps {
 	form: Form;
 	onClose: () => void;
-	onSave: (design: NonNullable<Form['design']>) => Promise<void> | void;
+	onSave: (design: NonNullable<Form['design']>) => void;
 }
 
 export const DesignModal: React.FC<DesignModalProps> = ({ form, onClose, onSave }) => {
 	const [tab, setTab] = useState<'font' | 'buttons' | 'background'>('font');
-	const [saving, setSaving] = useState(false);
 	const [draft, setDraft] = useState<NonNullable<Form['design']>>({
 		fontFamily: form.design?.fontFamily || '',
 		titleColor: form.design?.titleColor || '#111827',
@@ -249,27 +248,17 @@ export const DesignModal: React.FC<DesignModalProps> = ({ form, onClose, onSave 
 					</div>
 				</div>
 				<div className='px-5 py-4 border-t border-gray-200 flex justify-end space-x-2'>
-					<button
-						className='px-4 py-2 text-sm font-medium rounded-md border'
-						onClick={onClose}
-						disabled={saving}
-					>
+					<button className='px-4 py-2 text-sm font-medium rounded-md border' onClick={onClose}>
 						Cancelar
 					</button>
 					<button
 						className='px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50'
-						onClick={async () => {
-							try {
-								setSaving(true);
-								await onSave(draft);
-								onClose();
-							} finally {
-								setSaving(false);
-							}
+						onClick={() => {
+							onSave(draft);
+							onClose();
 						}}
-						disabled={saving}
 					>
-						{saving ? 'Salvando...' : 'Salvar'}
+						Salvar
 					</button>
 				</div>
 			</div>

@@ -4,6 +4,14 @@ export interface User {
 	name: string;
 }
 
+export interface WelcomeScreen {
+	id: string;
+	title: string;
+	description?: string;
+	buttonText?: string;
+	showButton?: boolean;
+}
+
 export interface Form {
 	id: string;
 	title: string;
@@ -21,6 +29,10 @@ export interface Form {
 	hideProgressBar?: boolean;
 	// Design settings
 	design?: FormDesign;
+	// Embed settings
+	embedConfig?: EmbedConfig;
+	welcomeScreen?: WelcomeScreen;
+	finals?: FinalScreen[];
 }
 
 export interface FormDesign {
@@ -78,6 +90,14 @@ export interface Response {
 	answers: Answer[];
 }
 
+export interface FinalScreen {
+	id: string;
+	title: string;
+	description?: string;
+	buttonText?: string;
+	showButton?: boolean;
+}
+
 export interface Answer {
 	questionId: string;
 	value: string | string[] | number;
@@ -126,4 +146,27 @@ export interface WorkflowRule {
 
 export interface FormWorkflow {
 	rules: WorkflowRule[];
+}
+
+export interface EmbedConfig {
+	name: string;
+	mode: 'card' | 'fullwidth' | 'popup' | 'sidebar' | 'floating' | 'slideTab';
+	width: number;
+	widthUnit: '%' | 'px';
+	height: 'auto' | 'fixed';
+	heightValue: number;
+	fullscreenMobile: boolean;
+	hideHeaders: boolean;
+	backgroundTransparency: number;
+	popupSize: 'pequeno' | 'medio' | 'grande';
+	buttonText: string;
+	buttonColor: string;
+	fontSize: number;
+	borderRadius: number;
+	textButton: boolean;
+	sidebarPosition: 'esquerda' | 'direita';
+	customIcon: boolean;
+	notificationDot: boolean;
+	slideTabText: string;
+	customCss: string;
 }
