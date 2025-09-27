@@ -229,7 +229,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			description: '',
 			required: false,
 			order: form.questions.length + 1,
-			questions: [],
+			questions: [createEmptyQuestion(1)],
 		};
 		handleFormUpdate({ ...form, questions: [...form.questions, newGroup] });
 		setIsWelcomeScreenSelected(false);
@@ -246,7 +246,7 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 			description: '',
 			required: false,
 			order: form.questions.length + 1,
-			questions: [],
+			questions: [createEmptyQuestion(1)],
 		};
 		handleFormUpdate({ ...form, questions: [...form.questions, newMultiQuestion] });
 		setIsWelcomeScreenSelected(false);
@@ -416,6 +416,12 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 	const deleteQuestionFromGroup = (groupId: string, questionId: string) => {
 		const group = form.questions.find((q) => q.id === groupId);
 		if (!group || (group.type !== 'question-group' && group.type !== 'multiquestion')) return;
+
+		if ((group.questions || []).length <= 1) {
+			showToast('Não é possível excluir a última pergunta de um grupo.', 'error');
+			setIsDeleteDialogOpen(false);
+			return;
+		}
 
 		const updatedGroup = {
 			...group,
@@ -678,7 +684,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 												});
 												setIsDeleteDialogOpen(true);
 											}}
-											className='p-1 text-red-400 hover:text-red-600'
+											className='p-1 text-red-400 hover:text-red-600 disabled:text-gray-300 disabled:cursor-not-allowed'
+											disabled={(selectedQuestion.questions || []).length <= 1}
 										>
 											<Trash2 className='h-3 w-3' />
 										</button>
@@ -838,7 +845,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 																			});
 																			setIsDeleteDialogOpen(true);
 																		}}
-																		className='p-1 text-red-400 hover:text-red-600'
+																		className='p-1 text-red-400 hover:text-red-600 disabled:text-gray-300 disabled:cursor-not-allowed'
+																		disabled={(selectedQuestion.questions || []).length <= 1}
 																	>
 																		<Trash2 className='h-3 w-3' />
 																	</button>
@@ -921,7 +929,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 															});
 															setIsDeleteDialogOpen(true);
 														}}
-														className='p-1 text-red-400 hover:text-red-600'
+														className='p-1 text-red-400 hover:text-red-600 disabled:text-gray-300 disabled:cursor-not-allowed'
+														disabled={(question.questions || []).length <= 1}
 													>
 														<Trash2 className='h-3 w-3' />
 													</button>
@@ -1418,7 +1427,8 @@ export const FormEditor: React.FC<FormEditorProps> = ({
 																				});
 																				setIsDeleteDialogOpen(true);
 																			}}
-																			className='p-1 text-red-400 hover:text-red-600'
+																			className='p-1 text-red-400 hover:text-red-600 disabled:text-gray-300 disabled:cursor-not-allowed'
+																			disabled={(selectedQuestion.questions || []).length <= 1}
 																		>
 																			<Trash2 className='h-3 w-3' />
 																		</button>
